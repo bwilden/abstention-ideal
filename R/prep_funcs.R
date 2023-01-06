@@ -1,17 +1,20 @@
 
-prep_clf_data <- function() {
+prep_cfl_data <- function() {
   ## READ IN THE MAPLIGHT DATA
   
-  pos_all <- read_csv(here("ideal", "Polarized_Pluralism_Replication", "Data", "all_positions_including114-csv.csv"))
+  pos_all <- read_csv(here("data-raw", "Polarized_Pluralism_Replication", "Data", "all_positions_including114-csv.csv"))
   
   ## READ IN THE ROLL CALL DATA, VOTES
   
-  rollcalls <- read_csv(here("ideal", "Polarized_Pluralism_Replication", "Data", "HSall_rollcalls.csv"))
-  votes <- read_csv(here("ideal", "Polarized_Pluralism_Replication", "Data", "HSall_votes.csv"))
+  # bwilden - getting rollcall vote data with codes for bill subjects
+  # rollcalls <- read_csv(here("data-raw", "Polarized_Pluralism_Replication", "Data", "HSall_rollcalls.csv"))
+  rollcalls <- jsonlite::fromJSON("https://voteview.com/static/data/out/rollcalls/HSall_rollcalls.json", flatten = TRUE)
+  
+  votes <- read_csv(here("data-raw", "Polarized_Pluralism_Replication", "Data", "HSall_votes.csv"))
   
   ## READ IN BILL-SPECIFIC INFORMATION FROM CONGRESSIONAL BILLS PROJECT
   
-  cbp <- read_csv(here("ideal", "Polarized_Pluralism_Replication", "Data", "bills93-114 2.csv"))
+  cbp <- read_csv(here("data-raw", "Polarized_Pluralism_Replication", "Data", "bills93-114 2.csv"))
   
   #standardize bill types in CBP to match Maplight ids
   pos_all$prefix[pos_all$prefix == "S"] <- "s"
@@ -33,9 +36,9 @@ prep_clf_data <- function() {
   pos_all_edges <- pos_all %>% 
     dplyr::select(orgname, BillID, disposition, Party, grouptype)
   pos_all_edges <- pos_all_edges %>% 
-    filter(complete.cases(pos_all_edges)) %>% 
+    filter(complete.cases(pos_all_edges))
     # bwilden - Added business group dummy
-    mutate(business = if_else(str_starts(grouptype, "G"), 1, 0))
+    # mutate(business = if_else(str_starts(grouptype, "G"), 1, 0))
   
   ## JOIN DATA TOGETHER
   
@@ -53,7 +56,9 @@ prep_clf_data <- function() {
   rollcalls$bill_type <- gsub("[0-9]", "", rollcalls$bill_number) 
   rollcalls$bill_num <- gsub("[^0-9]", "", rollcalls$bill_number)
   rollcalls$BillID <- paste(rollcalls$congress, rollcalls$bill_type, rollcalls$bill_num, sep ="-")
-  rollcalls <- dplyr::select(rollcalls, congress, chamber, rollnumber, BillID, date)
+  rollcalls <- dplyr::select(rollcalls, congress, chamber, rollnumber, BillID, date,
+                             # bwilden - Added bill subject codes
+                             issue_codes, crs_subjects, peltzman_codes, crs_policy_area)
   
   #merge by last position taken, last roll call taken
   last_rolls <- rollcalls %>% group_by(BillID) %>% summarise(lastrolldate = max(date))
@@ -71,14 +76,15 @@ prep_clf_data <- function() {
   rollcalls <- rollcalls %>% 
     left_join(cbp_select, by = "BillID") %>% 
     mutate(icpsr = as.character(icpsr)) %>% 
-    select(icpsr, disposition, BillID, Party)
+    select(icpsr, disposition, BillID, Party, issue_codes, crs_subjects, peltzman_codes, crs_policy_area)
+  
+  # bwilden - Adding bill subject info to group data
+  groups <- rollcalls |> 
+    select(BillID, issue_codes, crs_subjects, peltzman_codes, crs_policy_area) |> 
+    right_join(pos_all_edges, by = "BillID")
   
   # bwilden - Renamed data
-  groups <- pos_all_edges
   legislators <- rollcalls
-  
-  saveRDS(groups, file = here("ideal", "data", "groups.rds"))
-  saveRDS(legislators, file = here("ideal", "data", "legislators.rds"))
   
   return(lst(groups, legislators))
 }

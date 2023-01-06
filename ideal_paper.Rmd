@@ -1,0 +1,336 @@
+---
+title: "Ideal Point Estimation With 99% Missing Data"
+author: "Bertrand Wilden"
+date: "Last updated on `r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+header-includes:
+- \usepackage{setspace}\doublespacing
+- \usepackage{amsmath, physics}
+- \usepackage{floatrow} \floatsetup[figure]{capposition=top}
+indent: yes
+fontsize: 11pt
+bibliography: [cites.bib]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache.lazy = FALSE)
+
+pacman::p_load(
+  "dplyr",
+  "here",
+  "patchwork",
+  "targets",
+  "kableExtra",
+  "tidybayes",
+  "ggdist",
+  "MetBrewer"
+)
+
+Sys.setenv(TAR_PROJECT = "project_ideal")
+
+options(scipen = 1, digits = 3)
+
+# knitr::write_bib(c("brms"),
+#                  here("ideal", "cites.bib"))
+```
+
+# Introduction
+
+Many variables of interest in the social sciences defy easy measurement. Some latent characteristics, such as ideology, cannot be observed directly and must instead be inferred from the actions taken by political actors. One popular statistical method for estimating latent characteristics from observed actions is known as Item Response Theory (IRT). These models originated in psychometric research attempting to measure the ability of individual test takers [@rasch1980], but have also been adapted to measure political ideology [@clinton2004]. In general, IRT models can be used to measure latent traits when a set of actors signal their observed preference among two or more choices. A common example of is legislators voting yea or nay on bills in Congress. IRT has been used to measure the political ideology of the US public [@treier2009; @caughey2015], of Supreme Court justices [@martin2002], of Twitter users [@barberá2015], and the alignment of countries in the UN General Assembly [@bailey2017].
+
+These political ideal point models typically assume that the entire set of actors in question take public positions on every policy choice presented before them. This works okay in contexts like the US Congress where abstention rates are quite low. Failing to factor abstentions into models of legislators' ideology is valid if these missing votes are ignorable---in other words are not associated with the legislators' own ideology and the ideological content of the bills. However, @rosas2015 show that this can lead to misleading estimates of legislator ideology in legislatures outside the US. In the Israeli Knesset, for example, abstentions are common and likely represent some aspect of legislators' ideologies.
+
+Another context with high rates of missing data are interest groups' signals of support or opposition for particular pieces of legislation. Using Maplight data on interest group positions, @crosson2020 measure the political ideology of interest groups lobbying in the US Congress.[^1] Although the Maplight data has information on 8,494 groups taking one or more positions across 16,436 bills, the probability that any particular group sends a signal on a particular bill is extremely low. If interest groups in the US were a legislative assembly, they would have an abstention rate of over 99.99%.
+
+[^1]: Lorenz, Geoffrey M., Alexander C. Furnas, and Jesse M. Crosson. "Large-N Bill Positions Data from MapLight.Org: What Can We Learn from Interest Groups' Publicly Observable Legislative Positions?" *Interest Groups & Advocacy* 9, no. 3 (September 2020): 342--60. <https://doi.org/10.1057/s41309-020-00085-x>.
+
+In this paper I apply the IRT model developed by @rosas2015 to account for the massive amounts of missing data among interest group positions. This model allows each group to have an independent "indifference" parameter which controls the probability that they will signal any position on a particular bill or choose to abstain. I extend the analysis done by @rosas2015 by showing how common IRT techniques used in political science dramatically fail in contexts where a vast majority of signals are missing. I also contribute to overall use of IRT models in political science by incorporating the latest advances in the field of Bayesian computational methods into my analysis. Finally, I replicate the ideal point estimation from @crosson2020 and show how my model yields a diverging view of political polarization among interest group lobbying.
+
+# Ideal Point Background
+
+Ideal point models in political science are examples of measurement models. These methods use observed actions to inform us about the latent traits of various political actors. Using interest groups as an example, let's imagine that each group $i$, has an political ideal point $\theta_i$, which lies on a single left-right, or liberal-conservative, spectrum. The probability that a given group signals that it supports or opposes a particular piece of legislation $j$, is then determined by the distance between the group's ideal point and the ideological content of the bill $\gamma_j$. We also assume that each bill has a component $\beta_j$ which controls the probability, independent of political ideology, that it receives support from an interest group. Putting these parameters together, along with an assumption that interest groups have some Normal(0, 1) idiosyncratic error in their signalling behavior, gives us the following model which can be estimated from observed data:[^2]
+
+[^2]: For a full derivation of this formula using spatial choice theory see @clinton2004
+
+```{=tex}
+\begin{equation}
+\text{Pr}(y_{ij} = \text{Support}) = \Phi(\gamma_j\theta_i + \beta_j)
+\end{equation}
+```
+Equation (1) is equivalent to the 2-parameter IRT model used in psychometric research [@fox2010]. As it stands, however, (1) is not identified. Under the frequentist paradigm, this means that there is not a unique set of parameter values which maximize the likelihood function. This is due to three reasons. First, there is no unique location for the latent scale because adding a constant to the $\gamma_j\theta_i$ term can be offset by subtracting the same constant from $\beta_j$. In other words, while it may be natural to think of zero as the center of a political ideology scale, nothing in (1) defines the center of the latent variable. Second, the scale can be arbitrarily stretched or compressed by multiplying and dividing the terms by the same constant. And third, the polarity of the scale is not uniquely identified. There is no information in (1) to tell use whether positive values of the $\theta_i$ correspond to liberal ideal points or to conservative ideal points.
+
+The models used most commonly to estimate ideal points operate under the Bayesian framework, and thus are not beholden to the same strict identifiable constraints frequentist models are [@martin2010]. However, in practice the three issues described above lead Bayesian computational methods to struggle during the model fitting process. In the following section I describe how my method overcomes some of the identification challenges.
+
+While equation (1) assumes that the responses are binary (support or oppose) and uses the probit link function, IRT ideal point models can support a wide range of outcome types [@bürkner2020]. Public opinion surveys often ask people to rank their support or opposition to some policy on a five or seven point scale. In these situations either a cumulative or multinomial link function is more appropriate rather than collapsing responses to a binary support/oppose [@hill2015]. Likelihoods such as the poisson function can also be used if the observed outcomes are a count of positions taken [@slapin2008]. As I demonstrate below, the choice of response function in IRT ideal point models can have a dramatic effect on inferences.
+
+# Abstention Ideal Point Model
+
+Recall that the Maplight data reports interest group positions (support/oppose) on bills brought before the US Congress. While it may appear that these observed positions are binary, interest groups have a third option available to them when a piece of legislation is introduced: to abstain from taking any position at all. In fact, this is by far the most common response interest groups choose. For any given bill, 99.99% of interest groups will not send a signal of either support or opposition. Most interest groups focus on very narrow policy areas, and sending a signal of support an opposition is somewhat costly, so this high abstention rate makes sense. Ideal point models, however, assume that all pieces of legislation contain some amount of ideological content along a one-dimensional scale. Therefore we should consider abstentions as something like a middle-ground position that lies between signals of outright support and opposition.
+
+@rosas2015 develop an IRT ideal point model for explicitly accounting for abstentions in legislatures. Every actor is given an additional parameter $\tau_i$ which controls its level of indifference. The larger the absolute value of $\tau_i$, the less likely the actor will signal support or opposition on a given bill. Equation (2) shows the expanded model and Figure 1 shows a graphical representation:
+
+```{=tex}
+\begin{equation}
+\begin{aligned}
+\text{Pr}(y_{ij} &= \text{Support}) = \Phi(\gamma_j\theta_i + \beta_j - \tau_i) \\
+\text{Pr}(y_{ij} &= \text{Abstain}) = \Phi(\tau_i - (\gamma_j\theta_i + \beta_j)) - \Phi(-\tau_i - (\gamma_j\theta_i + \beta_j)) \\
+\text{Pr}(y_{ij} &= \text{Oppose}) = 1 - \Phi(\gamma_j\theta_i + \beta_j + \tau_i) 
+\end{aligned}
+\end{equation}
+```
+```{r, fig.cap="Abstension Ideal Point Model", fig.height=3}
+tau_plus <- .7
+tau_minus <- -2
+tau_mid <- (tau_plus + tau_minus) / 2
+
+plot_labs <- tibble(x = c(tau_minus, tau_mid, 0, tau_plus),
+                    y = c(-.02, -.02, .03, -.02),
+                    label = c("-tau[i]", "0", "gamma[j] * theta[i] + beta[j]", "tau[i]"))
+tibble(z = seq(from = -3.75, to = 3.75, length.out = 1e3)) %>% 
+  mutate(d = dnorm(x = z, mean = 0, sd = 1)) %>% 
+  ggplot(aes(x = z, y = d)) +
+  geom_line(color = "black") +
+  geom_area(aes(fill = z <= tau_minus), alpha = 1/4) +
+  geom_area(aes(fill = z >= tau_plus), alpha = 1/4) +
+  geom_segment(x = tau_plus, xend = tau_plus, y = 0, yend = dnorm(tau_plus), linetype = 3) +
+  geom_segment(x = tau_minus, xend = tau_minus, y = 0, yend = dnorm(tau_minus), 
+               linetype = 3) +
+  geom_segment(x = tau_plus, xend = tau_plus, y = 0, yend = .01) +
+  geom_segment(x = tau_minus, xend = tau_minus, y = 0, yend = .01) +
+  geom_segment(x = tau_mid, xend = tau_mid, y = 0, yend = .01) +
+  geom_segment(x = 0, xend = 0, y = 0, yend = .01) +
+  annotate("text", x = plot_labs$x, y = plot_labs$y, label = parse(text = plot_labs$label)) +
+  annotate("text", x = tau_plus + 2, y = dnorm(tau_plus + .5), 
+           label = parse(text = "Pr(y[ij] == Support)"),
+           family = "serif") +
+  geom_curve(aes(x = tau_plus + 1.9, y = dnorm(tau_plus + .6),
+             xend = tau_plus + 1.1, yend = dnorm(tau_plus + 1.5)),
+             arrow = arrow(length = unit(.02, "npc")), curvature = -.25) +
+  annotate("text", x = tau_minus - .7, y = dnorm(tau_minus + .5), 
+           label = parse(text = "Pr(y[ij] == Oppose)"),
+           family = "serif") +
+  geom_curve(aes(x = tau_minus - .7, y = dnorm(tau_minus + .4),
+             xend = tau_minus - .5, yend = dnorm(tau_minus - .8)),
+             arrow = arrow(length = unit(.02, "npc")), curvature = .25) +
+  annotate("text", x = tau_mid - 1, y = dnorm(tau_mid - .2), 
+           label = parse(text = "Pr(y[ij] == Abstain)"),
+           family = "serif") +
+  geom_curve(aes(x = tau_mid - 1, y = dnorm(tau_mid - .3),
+             xend = tau_mid - .4, yend = dnorm(tau_mid) / 2),
+             arrow = arrow(length = unit(.02, "npc")), curvature = .25) +
+  scale_fill_manual(values = c("transparent", met.brewer("Isfahan1")),
+                    breaks = NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_continuous(NULL, breaks = NULL, name = parse(text = "y[ij]")) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-3.25, 3.25)) +
+  theme_ggdist() +
+  theme(text = element_text(family = "serif"),
+        axis.line.y.left = element_blank())
+```
+
+We can estimate the group and bill parameters in equation (2) using a Bayesian ordered probit model with group-specific thresholds. A fully-specified Bayesian model requires that we place priors on all parameters. This has the added benefit in the context of IRT models of resolving the location and scale identification issues described earlier. Priors work to constrain the plausible space of parameter values, which means we can use them to enforce a center on the ideal point distribution as well as set a reasonable scale to the values. In my model I assign the following prior distributions to the main parameters:
+
+```{=tex}
+\begin{equation*}
+\begin{aligned}
+\tau_{1i}, \tau_{2i} &\sim \text{Normal}(0, 4) \\
+\theta_i &\sim \text{Normal}(0, 3) \\
+\gamma_j &\sim \text{Normal}(0, 3) \\
+\beta_j &\sim \text{Normal}(0, 2)
+\end{aligned}
+\end{equation*}
+```
+Note that each interest group $i$, receives its own prior for the thresholds $\tau_1$ and $\tau_2$. This allows the indifference region of each group to vary. These priors are fairly wide on the probit scale, but are necessary when interest groups are believed to have very wide indifference regions (i.e. when abstention rates are extremely high).
+
+In order to identify the polarity of the ideal point scale I include covariates to help predict the $\theta_i$ and $\gamma_j$ parameters. A binary indicator for whether the interest group is classified as representing business interests, along with a binary indicator for whether the bill was authored by a Republican member of Congress, are added to the model. I constrain each of these coefficients to be positive by using a LogNormal(-1, 1) prior distribution. The center of this distribution is $exp(-1) = 0.368$ which is reasonably conservative. But the right-skewed nature of the LogNormal distribution allows these coefficients to be much larger if so informed by the data.
+
+```{=tex}
+\begin{equation*}
+\begin{aligned}
+\tau_{1i}, \tau_{2i} &\sim \text{Normal}(0, 4) \\
+\theta_i &\sim \text{Normal}(\delta_1\text{Business}, 3) \\
+\gamma_j &\sim \text{Normal}(\delta_2\text{Republican}, 3) \\
+\beta_j &\sim \text{Normal}(0, 2) \\
+\delta_1, \delta_2 &\sim \text{LogNormal}(-1, 1)
+\end{aligned}
+\end{equation*}
+```
+The method of including informative covariates into ideal point models is not widely practiced in political science. Instead, in order to identify the polarity of the scale researchers typically fix the ideal points of two actors to constants. An example from the US Congress would be to fix Bernie Sanders's ideal point to -2 and Ted Cruz's to 2. This method has a few drawbacks. First, the results become sensitive to the modeler's *a priori* expectations for where certain actors are located on the latent scale. This might not be such a problem in contexts which have been heavily studied like US Congress members, but there are fewer theoretical expectations for where the ideal points of specific interest groups are located. Second, it is not necessarily possible to fix actors to specific locations when using hierarchical modeling techniques.
+
+Hierarchical Bayesian modeling is another under-utilized technique among IRT ideal point models in political science. Rather than estimating each actor and bill parameter in a vacuum, hierarchical modeling (also referred to as multilevel modeling) allows the groups to pool information from the population of actors and bills. This is done by modeling each parameter's prior as a function of the group mean, which itself is given a prior. Extending out the model with hierarchical priors we get:
+
+```{=tex}
+\begin{equation*}
+\begin{aligned}
+\tau_{1i}, \tau_{2i} &\sim \text{Normal}(0, 4) \\
+\theta_i &\sim \text{Normal}(\bar{\theta} + \delta_1\text{Business}, 3) \\
+\gamma_j &\sim \text{Normal}(\bar{\gamma}  + \delta_2\text{Republican}, 3) \\
+\beta_j &\sim \text{Normal}(\bar{\beta}, 2) \\
+\delta_1, \delta_2 &\sim \text{LogNormal}(-1, 1) \\
+\bar{\theta} &\sim \text{Normal}(0, \sigma_\theta) \\
+\bar{\gamma} &\sim \text{Normal}(0, \sigma_\gamma) \\
+\bar{\beta} &\sim \text{Normal}(0, \sigma_\beta) \\
+\sigma_\theta &= 1 \\
+\sigma_\gamma, \sigma_\beta &\sim \text{HalfCauchy}(0, 2)
+\end{aligned}
+\end{equation*}
+```
+The $\sigma_\theta$ parameter is fixed at 1 in order to help identify the scale of the ideal points [@bürkner2020; @rosas2015], but the rest of the variance parameters are allowed to vary. Hierarchical modeling is very powerful in contexts like the MapLight data. Many interest groups only signal support or opposition a few times during the time period covered, so it is important that we use the population distribution of interest group ideal points to help inform us about these rare cases. Hierarchical models are also much better at predicting out of sample compared to "memory-less models" [@gelman2007; @mcelreath2020]. This should give us more confidence that the interest group ideal points produced by the model are a more accurate reflection of their true latent ideology.
+
+```{=tex}
+\begin{equation}
+\begin{aligned}
+y_{ij} &\sim \text{Ordered.Categorical}(\mathbf{p}) \\
+p_k &= \Phi(\tau_{ki} - (\gamma_j\theta_i + \beta_j)) - \Phi(\tau_{k-1,i} - (\gamma_j\theta_i + \beta_j)) \\
+\tau_{1i}, \tau_{2i} &\sim \text{Normal}(0, 4) \\
+\theta_i &\sim \text{Normal}(\bar{\theta} + \delta_1\text{Business}, 3) \\
+\gamma_j &\sim \text{Normal}(\bar{\gamma}  + \delta_2\text{Republican}, 3) \\
+\beta_j &\sim \text{Normal}(\bar{\beta}, 2) \\
+\delta_1, \delta_2 &\sim \text{LogNormal}(-1, 1) \\
+\bar{\theta} &\sim \text{Normal}(0, \sigma_\theta) \\
+\bar{\gamma} &\sim \text{Normal}(0, \sigma_\gamma) \\
+\bar{\beta} &\sim \text{Normal}(0, \sigma_\beta) \\
+\sigma_\theta &= 1 \\
+\sigma_\gamma, \sigma_\beta &\sim \text{HalfCauchy}(0, 2)
+\end{aligned}
+\end{equation}
+```
+Putting all the pieces of the model together gives us equation (3). I fit this model using the probabilistic programming language Stan [@carpenter2017]. Stan's Hamiltonian Monte Carlo sampler does a better job of exploring the high dimensional parameter space in a model like (3) than older Markov Chain Monte Carlo algorithms [@betancourt2018]. It also provides many diagnostic tools which alert users of possible problems with their models. This is invaluable for IRT models for which proper identification is a big concern.
+
+The cumulative probit model which accounts for interest group abstentions in equation (3) (hereafter referred to as the "Abstention model") is contrasted by the ideal point model used by @crosson2020. The authors use the binary ideal point model developed by @clinton2004 via the R package `pscl`. The default `pscl` ideal point model uses equation (1) with the following priors:
+
+```{=tex}
+\begin{equation*}
+\begin{aligned}
+\theta_i &\sim \text{Normal}(0, 1) \\
+\gamma_j &\sim \text{Normal}(0, 25) \\
+\beta_j &\sim \text{Normal}(0, 25)
+\end{aligned}
+\end{equation*}
+```
+This method does not model abstentions explicitly, nor does it take advantage of interest group and bill covariates or use hierarchical priors.[^3] These drawbacks are not always apparent, and the `pscl` model does an excellent job recovering accurate ideal points in many contexts in which it has been used. But as I show in the following section, it is ill-suited for estimating ideal points when the data generating process produces massively abstention-skewed observations. And the MCMC method used by `pscl` is not equipped with the same diagnostic tools as Stan's HMC sampler to alert users that these problems may be occurring.
+
+[^3]: In order to ensure location and scale identification, the `pscl` ideal point estimates are typically normalized---constrained to have a mean of zero and standard deviation of one. Users must also fix two or more groups' ideal points to ensure polarity identification.
+
+# Simulation Study
+
+```{r}
+tar_load(sim_data)
+tar_load(sim_comparison_plots)
+
+calc_missing <- function(n) {
+  pct_missing <- janitor::tabyl(sim_data[[n]]$ij_all$y_ij)[2, "percent"] * 100 
+  return(pct_missing)
+}
+```
+
+In order to test the accuracy of the Abstention model from equation (3) and the `pscl` model, I created simulated data sets with 100 groups and 300 bills. Each group is given an ideal point drawn from a Normal(0, 1) distribution and an indifference parameter drawn from a $\text{HalfNormal}(\mu, 0.5)$ distribution with a mean $\mu$, which varies across the simulated data sets. Increasing $\mu$ from 0 to 4 by increments of 1 produced the following abstention rates in five data sets: [`r paste(round(calc_missing(1), 1), round(calc_missing(2), 1), round(calc_missing(3), 1), round(calc_missing(4), 1), round(calc_missing(5), 1), sep = ", ")`]. Each group either opposes, abstains, or supports a given bill following the formula in equation (2). The Abstention model is fit on each of these full simulated data sets, whereas the `pscl` model is fit on a version of each data set with the abstention observations removed.[^4]
+
+[^4]: Simulated groups which never signal support or opposition are removed from both versions of the data so that each model is working with the same set of groups.
+
+```{r, fig.height=4, fig.cap = paste("Simulation Results with", round(calc_missing(1), 1), "% Missing Data")}
+sim_comparison_plots[[1]]
+```
+
+```{r, fig.height=4, fig.cap = paste("Simulation Results with", round(calc_missing(2), 1), "% Missing Data")}
+sim_comparison_plots[[2]] 
+```
+
+```{r, fig.height=4, fig.cap = paste("Simulation Results with", round(calc_missing(3), 1), "% Missing Data")}
+sim_comparison_plots[[3]]
+```
+
+```{r, fig.height=4, fig.cap = paste("Simulation Results with", round(calc_missing(4), 1), "% Missing Data")}
+sim_comparison_plots[[4]]
+```
+
+```{r, fig.height=4, fig.cap = paste("Simulation Results with", round(calc_missing(5), 1), "% Missing Data")}
+sim_comparison_plots[[5]]
+```
+
+Figures 2 through 6 display the results of these simulation tests. In each plot the true group ideal points $\theta_i$ are distributed along the X axis and the ideal points estimated from each model $\hat{\theta}_i$ are distributed along the Y axis. Each model's performance can be judged by how closely the estimated ideal points track with the true ideal points along the solid diagonal identity line. The 89% posterior intervals around the median ideal points also provides a sense for how precise the estimates are.
+
+In Figures 2 and 3, with `r round(calc_missing(1), 1)` and `r round(calc_missing(2), 1)` percentages of abstentions respectively, both models appear to be performing well. But once the abstention rate starts to exceed 75% (Figures 4 and 5), the `pscl` model begins to show signs of deterioration. Particularly at the extremes of the scale, the posterior distributions for the estimated ideal points become much more uncertain. We also see some decoupling of the estimates from their true values at the extremes. Things really fall apart for the `pscl` model in Figure 5 with `r round(calc_missing(5), 1)`% abstentions. The estimated ideal points are now all over the place and fail to discernibly correlate with the true ideal points. Admittedly, as we increase the percentage of abstentions, the Abstention model produces more uncertain estimates as well. But overall the Abstention model is roughly recovering the true ideal point values.
+
+Although the simulation results show some evidence that the Abstention model is better equipped to handle missing data compared to the `pscl` model, the former has one major drawback. The Abstention model takes an extremely long time to fit compared to `pscl`. The combination of modeling all group and bill parameters hierarchically and giving each group its own independent thresholds on the cumulative probit scale increase computational demands drastically. Each of the simulations in Figures 2 through 6 above took roughly two hours to run on a 2019 MacBook Pro. Whereas fitting the `pscl` models took less than five seconds each. So for now the Abstention model is only feasible for small-scale data sets.
+
+# Replication of *Polarized Pluralism: Organizational Preferences and Biases in the American Pressure System*
+
+```{r}
+tar_load(cfl_exp_data)
+tar_load(cfl_qis)
+tar_load(cfl_ord_irt_checks)
+tar_load(cfl_disagree_groups)
+tar_load(cfl_agree_groups)
+tar_load(cfl_density_plot)
+tar_load(cfl_comparison_plot)
+
+cfl_missing <- janitor::tabyl(cfl_exp_data[[5]]$ij_all$y_ij)[2, "percent"] * 100 
+
+thetas_cor <-
+  cor(
+    cfl_qis %>%
+      filter(method == "Abstension Model") %>%
+      arrange(group_id) %>%
+      pull(theta_est),
+    cfl_qis %>%
+      filter(method == "pscl Model") %>%
+      arrange(group_id) %>%
+      pull(theta_est))
+```
+
+In *Polarized Pluralism: Organizational Preferences and Biases in the American Pressure System* (2020) Crosson, Furnas, and Lorenz use the MapLight data on interest groups' lobbying behavior in the US Congress to construct the first set of ideal points for interest groups. Rather than exhibiting a strong conservative bias as was previously theorized [@schattschneider1960], the authors find that the ideological distribution of interest groups is distinctly bi-modal and roughly resembles the ideological make up of members of Congress. As mentioned previously, the authors use the `pscl` model from @clinton2004 to estimate these interest group ideal points.
+
+Because of the expensive computation required by the Abstention model, I was only able to use a small portion of their data to replicate their results. Looking only at the 113th Congress (2013 to 2015), I selected the 200 interest groups with the highest amount of support/opposition signals. I then selected the 600 bills which received the highest amount of support/opposition signals and expanded the data set such that if a group did not signal support or opposition on a particular bill its observed action was explicitly coded as an abstention.[^5] The overall abstention rate in this reduced data is `r cfl_missing`%.
+
+[^5]: A handful of the 200 groups never signaled on any of the 600 bills and were thus dropped from the data. Also bills that received less than five support/oppose signals were dropped from the data. Unlike Crosson et al., I did *not* remove bills that received unanimous signals of support or opposition. While such bills might provide no evidence of a group's ideal point using the `pscl` model, the fact that a group choose to signal rather than to abstain provides valuable information in the Abstention model.
+
+```{r, fig.cap="Interest Group Ideal Points by Model Type"}
+cfl_comparison_plot[[1]]
+```
+
+```{r, fig.cap="Interest Group Ideal Point Medians by Model Type"}
+cfl_density_plot 
+```
+
+Figure 7 shows the estimated ideal points of these 200 interest groups in order from the Abstention Model. The correlation in ideal point estimates between the two models is `r thetas_cor`, but Figure 7 shows substantial disagreement for many individual groups. The ideal points from the `pscl` model appear to be much more bi-modal and clustered in a left-wing and right-wing region compared to the Abstention model's estimates. This pattern is also seen in Figure 8 which shows the full distributions of ideal points overlapped.
+
+```{r, fig.cap="Full Posterior Ideal Points for Selected Groups: Model Agreement"}
+cfl_agree_groups 
+```
+
+```{r, fig.cap="Full Posterior Ideal Points for Selected Groups: Model Disagreement"}
+cfl_disagree_groups 
+```
+
+\newpage
+
+Figure 9 shows six notable interest groups for which the two models are in rough agreement regarding their ideal points. Figure 10, however, shows several selected groups for which the two models diverge substantially. While the Abstention model's estimates are typically more centrist than the `pscl`'s, the National Employment Law Project and Associated Builders & Contractors groups offer notable counter-examples.
+
+\newpage
+
+# References
+
+::: {#refs}
+:::
+
+\newpage
+
+# Appendix {.numbered}
+
+# Abstention Model Diagnostics
+
+```{r, fig.cap="Parameter R-hat Values"}
+cfl_ord_irt_checks$rhats
+```
+
+```{r, fig.cap="Parameter Effective Sample Size Ratios"}
+cfl_ord_irt_checks$neffs
+```
+
+\newpage
+
+# Prospectus Comments
+
+-   The largest problem with this project in my eyes is time it takes to run my model. I'm highly motivated to do things the fully Bayesian way, but I'd be interested to know whether you think this is simply not feasible here.
