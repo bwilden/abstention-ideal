@@ -1,14 +1,14 @@
 
-gen_sim_data <- function(n_groups = 100,
-                         n_bills = 300,
-                         theta_sd = 1,
-                         tau_rate = 0,
-                         tau_mean = 0,
-                         beta_sd =  1,
-                         gamma_sd = 1,
-                         sigma_j = 1,
-                         business_effect = .5,
-                         rep_effect = .5) {
+gen_sim_data_ord <- function(n_groups = 100,
+                             n_bills = 300,
+                             theta_sd = 1,
+                             tau_rate = 0,
+                             tau_mean = 0,
+                             beta_sd =  1,
+                             gamma_sd = 1,
+                             sigma_j = 1,
+                             business_effect = .5,
+                             rep_effect = .5) {
   groups <- tibble(
     group_id = as.character(1:n_groups)
   ) %>% 
@@ -72,5 +72,130 @@ gen_sim_data <- function(n_groups = 100,
 #             theta_i = mean(theta_i), business = mean(business)) %>%
 #   ggplot(aes(x = tau_i, y = vote_avg)) +
 #   geom_point()
+
+
+gen_sim_data <- function(n_groups,
+                         n_bills,
+                         k_types = 5,
+                         rep_effect = .5) {
+  groups <- tibble(
+    group_id = as.character(1:n_groups),
+    group_type = sample(1:k_types, n_groups, replace = TRUE)
+  ) |> 
+    mutate(theta_i = rnorm(n(), mean = group_type),
+           theta_i = scale(theta_i))
+  
+  bills <- tibble(
+    bill_id = as.character(1:n_bills),
+    bill_type = sample(1:k_types, n_bills, replace = TRUE)
+  ) %>% 
+    mutate(rep = ifelse(row_number() %% 2 == 0, 1, 0),
+           beta_j = rnorm(n()),
+           gamma_j = case_when(rep == 1 ~ rnorm(n(), rep_effect, sd = 3),
+                               rep == 0 ~ rnorm(n(), -rep_effect, sd = 3)))
+  
+  ij_all <- bills |> 
+    crossing(group_id = as.character(1:n_groups)) |>  
+    left_join(groups, by = "group_id") |> 
+    mutate(type_distance = ifelse(group_type == bill_type, 1, 0),
+           pr_abstain = case_when(type_distance == 1 ~ rbeta(n(), 1, 2),
+                                  type_distance == 0 ~ rbeta(n(), 9, 1)),
+           abstain = rbinom(n(), 1, pr_abstain),
+           pr_support = pnorm(gamma_j * theta_i + beta_j),
+           support = rbinom(n(), 1, pr_support),
+           position = case_when(abstain == 1 ~ 2,
+                                support == 1 ~ 1,
+                                support == 0 ~ 0),
+           # group_type = as.character(group_type),
+           bill_type = as.character(bill_type))
+  
+  thetas <- ij_all %>% 
+    select(group_id, theta_i) %>% 
+    distinct()
+  
+  ij_obs <- ij_all %>% 
+    filter(position != 2)
+  
+  ij_obs_rc <- ij_obs %>% 
+    rename(yea = position) %>% 
+    select(group_id, bill_id, yea) %>% 
+    pivot_wider(id_cols = group_id,
+                values_from = yea,
+                names_from = bill_id) %>% 
+    arrange(as.numeric(group_id)) %>% 
+    select(-group_id) %>% 
+    select(stringr::str_sort(names(.), numeric = TRUE)) %>% 
+    pscl::rollcall()
+  
+  return(lst(ij_all, thetas, ij_obs, ij_obs_rc))
+}
+
+# set_hurdle_irt_specs <- function() {
+#   
+#   irt_family <- custom_family(
+#     "hurdle_probit",
+#     dpars = c("mu", "hu"),
+#     links = c("identity", "probit"),
+#     type = "int")
+#   
+#   stan_funs <- "
+#   real hurdle_probit_lpmf(int y, real mu, real hu) {
+#     if (y == 2) {
+#       return bernoulli_lpmf(1 | hu);
+#     } else {
+#       return bernoulli_lpmf(0 | hu) +
+#              bernoulli_lpmf(y | Phi(mu));
+#     }
+#   }
+# "
+#   irt_stanvars <- stanvar(scode = stan_funs, block = "functions")
+#   
+#   irt_formula <- bf(position ~ gamma * theta + beta,
+#                     theta ~  (1 | group_id),
+#                     gamma ~  rep + (1 | bill_id),
+#                     beta ~ (1 | bill_id),
+#                     hu ~ group_type,
+#                     nl = TRUE)
+#   
+#   irt_priors <-
+#     prior(cauchy(0, 5), class = sd, nlpar = theta) +
+#     prior(constant(1), class = sd, nlpar = gamma) +
+#     prior(cauchy(0, 5), class = sd, nlpar = beta) +
+#     prior(normal(0, 2), class = b, nlpar = beta) +
+#     prior(normal(0, 2), class = b, nlpar = gamma) +
+#     prior(normal(0, 3), class = b, nlpar = theta) +
+#     prior(normal(0, 1), class = b, dpar = hu) +
+#     prior(normal(0, 1), class = Intercept, dpar = hu) +
+#     prior(constant(.1), class = b, coef = rep, nlpar = gamma)
+#   
+#   return(lst(irt_family, irt_stanvars, irt_formula, irt_priors))
+# }
+
+# a<-gen_sim_data(n_groups = 75, n_bills = 150, k_types = 5)
+# a$ij_all |> janitor::tabyl(position)
+# a$ij_all |> group_by(group_type) |> summarise(mean(abstain))
+
+
+# fit <- brm(
+#   set_hurdle_irt_specs()$irt_formula,
+#   data = a$ij_all,
+#   prior = set_hurdle_irt_specs()$irt_priors,
+#   family = set_hurdle_irt_specs()$irt_family,
+#   stanvars = set_hurdle_irt_specs()$irt_stanvars,
+#   backend = "cmdstanr",
+#   init = "0",
+#   iter = 2000,
+#   chains = 4,
+#   threads = threading(4),
+#   cores = parallel::detectCores()
+# )
+# 
+# summary(fit)
+# 
+# sim_checks(fit, a$ij_all)
+# pp_check(fit)
+# 
+# 
+# get_prior(set_hurdle_irt_specs()$irt_formula, family = set_hurdle_irt_specs()$irt_family, data = a$ij_all)
 
 

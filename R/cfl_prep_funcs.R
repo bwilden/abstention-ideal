@@ -81,6 +81,7 @@ prep_cfl_data <- function() {
   # bwilden - Adding bill subject info to group data
   groups <- rollcalls |> 
     select(BillID, issue_codes, crs_subjects, peltzman_codes, crs_policy_area) |> 
+    distinct() |> 
     right_join(pos_all_edges, by = "BillID")
   
   # bwilden - Renamed data
