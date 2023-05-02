@@ -74,10 +74,10 @@ gen_sim_data_ord <- function(n_groups = 100,
 #   geom_point()
 
 
-gen_sim_data <- function(n_groups,
-                         n_bills,
-                         k_types = 5,
-                         rep_effect = .5) {
+gen_sim_data_hurdle <- function(n_groups,
+                                n_bills,
+                                k_types,
+                                rep_effect = .5) {
   groups <- tibble(
     group_id = as.character(1:n_groups),
     group_type = sample(1:k_types, n_groups, replace = TRUE)
@@ -109,15 +109,26 @@ gen_sim_data <- function(n_groups,
            support = rbinom(n(), 1, pr_support),
            position = case_when(abstain == 1 ~ 2,
                                 support == 1 ~ 1,
-                                support == 0 ~ 0),
-           # group_type = as.character(group_type),
-           bill_type = as.character(bill_type))
+                                support == 0 ~ 0))
   
-  thetas <- ij_all %>% 
+  thetas <- pull_thetas(ij_all)
+  
+  ij_obs_rc <- sim_to_rc(ij_all)
+  
+  return(lst(ij_all, thetas, ij_obs_rc))
+}
+
+pull_thetas <- function(sim_all) {
+  thetas <- sim_all %>% 
     select(group_id, theta_i) %>% 
     distinct()
   
-  ij_obs <- ij_all %>% 
+  return(thetas)
+}
+
+
+sim_to_rc <- function(sim_all) {
+  ij_obs <- sim_all %>% 
     filter(position != 2)
   
   ij_obs_rc <- ij_obs %>% 
@@ -130,9 +141,9 @@ gen_sim_data <- function(n_groups,
     select(-group_id) %>% 
     select(stringr::str_sort(names(.), numeric = TRUE)) %>% 
     pscl::rollcall()
-  
-  return(lst(ij_all, thetas, ij_obs, ij_obs_rc))
+  return(ij_obs_rc)
 }
+
 
 # set_hurdle_irt_specs <- function() {
 #   

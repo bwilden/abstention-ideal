@@ -88,8 +88,7 @@ run_brm_irt <- function(input_df,
 }
 
 set_hurdle_irt_specs <- function() {
-  
-  irt_family <- custom_family(
+  family <- custom_family(
     "hurdle_probit",
     dpars = c("mu", "hu"),
     links = c("identity", "probit"),
@@ -105,16 +104,16 @@ set_hurdle_irt_specs <- function() {
     }
   }
 "
-  irt_stanvars <- stanvar(scode = stan_funs, block = "functions")
+  stanvars <- stanvar(scode = stan_funs, block = "functions")
   
-  irt_formula <- bf(position ~ gamma * theta + beta,
+  formula <- bf(position ~ gamma * theta + beta,
                   theta ~ busi + (1 | group_id),
                   gamma ~ rep + (1 | bill_id),
                   beta ~ (1 | bill_id),
-                  hu ~ type_distance + rep + busi,
+                  hu ~ type_distance + rep * busi,
                   nl = TRUE)
 
-  irt_priors <-
+  priors <-
     prior(cauchy(0, 2), class = sd, nlpar = theta) +
     prior(cauchy(0, 2), class = sd, nlpar = gamma) +
     prior(cauchy(0, 1), class = sd, nlpar = beta) +
@@ -126,7 +125,7 @@ set_hurdle_irt_specs <- function() {
     prior(constant(.5), class = b, coef = rep, nlpar = gamma) +
     prior(constant(.5), class = b, coef = busi, nlpar = theta)
   
-  return(lst(irt_family, irt_stanvars, irt_formula, irt_priors))
+  return(lst(family, stanvars, formula, priors))
 }
 
 posterior_predict_hurdle_probit <- function(i, prep, ...) {
@@ -159,8 +158,28 @@ run_hurdle_irt <- function(input_df,
   return(fit)
 }
 
-
-
+run_brm_irt <- function(input_df,
+                        irt_formula,
+                        irt_priors,
+                        irt_family,
+                        irt_stanvars,
+                        ...) {
+  fit <- brm(
+    irt_formula,
+    data = input_df,
+    prior = irt_priors,
+    family = irt_family,
+    stanvars = irt_stanvars,
+    backend = "cmdstanr",
+    seed = 22,
+    iter = 2000,
+    chains = 4,
+    threads = threading(2),
+    cores = parallel::detectCores() - 2,
+    ...
+  )
+  return(fit)
+}
 
 
 

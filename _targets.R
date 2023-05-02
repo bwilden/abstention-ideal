@@ -24,16 +24,12 @@ tar_option_set(packages = c("here",
 suppressWarnings(library(tidyverse))
 
 list(
-  tar_target(
-    cfl_data,
-    prep_cfl_data()
-  ),
   # Simulations
   tar_target(
-    sim_data,
-    gen_sim_data(n_groups = 50, 
-                 n_bills = 100,
-                 k_types = 5)
+    sim_data_hurdle,
+    gen_sim_data_hurdle(n_groups = 50, 
+                        n_bills = 50,
+                        k_types = 100)
   ),
   tar_target(
     hurdle_irt_specs,
@@ -41,16 +37,16 @@ list(
   ),
   tar_target(
     hurdle_irt,
-    run_hurdle_irt(sim_data$ij_all,
-                   irt_priors = hurdle_irt_specs$irt_priors,
-                   irt_stanvars = hurdle_irt_specs$irt_stanvars,
-                   irt_formula = hurdle_irt_specs$irt_formula,
-                   irt_family = hurdle_irt_specs$irt_family)
+    run_brm_irt(sim_data_hurdle$ij_all,
+                irt_priors = hurdle_irt_specs$priors,
+                irt_stanvars = hurdle_irt_specs$stanvars,
+                irt_formula = hurdle_irt_specs$formula,
+                irt_family = hurdle_irt_specs$family)
     
   ),
   tar_target(
     hurdle_irt_checks,
-    sim_checks(hurdle_irt, sim_data$ij_all)
+    sim_checks(hurdle_irt, sim_data_hurdle$ij_all)
   ),
   # tar_target(
   #   sim_data_ord,
@@ -76,16 +72,22 @@ list(
   #        irt_family = ord_irt_specs$irt_family)
   # ),
   tar_target(
-    pscl_irt,
-    ideal(sim_data$ij_obs_rc,
+    pscl_hurdle_irt,
+    ideal(sim_data_hurdle$ij_obs_rc,
           maxiter = 12500,
           burnin = 7500,
           dropList = list(lop = NA),
           normalize = TRUE)
   ),
   tar_target(
-    sim_comparison_plots,
-    make_sim_comparison_plot(hurdle_irt, pscl_irt, sim_data$thetas)
+    sim_hurdle_comparison_plot,
+    make_sim_comparison_plot(hurdle_irt, 
+                             pscl_hurdle_irt, 
+                             sim_data_hurdle$thetas)
+  ),
+  tar_target(
+    cfl_data,
+    prep_cfl_data()
   )
   # tar_target(
   #   cfl_exp_data,
