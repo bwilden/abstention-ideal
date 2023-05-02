@@ -108,23 +108,23 @@ set_hurdle_irt_specs <- function() {
   irt_stanvars <- stanvar(scode = stan_funs, block = "functions")
   
   irt_formula <- bf(position ~ gamma * theta + beta,
-                  theta ~ (1 | group_id),
+                  theta ~ busi + (1 | group_id),
                   gamma ~ rep + (1 | bill_id),
                   beta ~ (1 | bill_id),
-                  hu ~ type_distance,
+                  hu ~ type_distance + rep + busi,
                   nl = TRUE)
 
   irt_priors <-
     prior(cauchy(0, 2), class = sd, nlpar = theta) +
-    prior(constant(1), class = sd, nlpar = gamma) +
-    prior(cauchy(0, 2), class = sd, nlpar = beta) +
-    # prior(normal(0, 2), class = b, coef = group_type, nlpar = theta) +
+    prior(cauchy(0, 2), class = sd, nlpar = gamma) +
+    prior(cauchy(0, 1), class = sd, nlpar = beta) +
     prior(normal(0, 2), class = b, nlpar = beta) +
     prior(normal(0, 2), class = b, nlpar = gamma) +
     prior(normal(0, 3), class = b, nlpar = theta) +
-    prior(normal(0, 3), class = b, dpar = hu) +
-    prior(normal(0, 3), class = Intercept, dpar = hu) +
-    prior(lognormal(0, .5), class = b, coef = rep, nlpar = gamma)
+    prior(normal(0, 1), class = b, dpar = hu) +
+    prior(normal(0, 1), class = Intercept, dpar = hu) +
+    prior(constant(.5), class = b, coef = rep, nlpar = gamma) +
+    prior(constant(.5), class = b, coef = busi, nlpar = theta)
   
   return(lst(irt_family, irt_stanvars, irt_formula, irt_priors))
 }

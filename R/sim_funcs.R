@@ -83,7 +83,8 @@ gen_sim_data <- function(n_groups,
     group_type = sample(1:k_types, n_groups, replace = TRUE)
   ) |> 
     mutate(theta_i = rnorm(n(), mean = group_type),
-           theta_i = scale(theta_i))
+           theta_i = scale(theta_i),
+           busi = ifelse(group_type > mean(group_type), 1, 0))
   
   bills <- tibble(
     bill_id = as.character(1:n_bills),
@@ -91,14 +92,17 @@ gen_sim_data <- function(n_groups,
   ) %>% 
     mutate(rep = ifelse(row_number() %% 2 == 0, 1, 0),
            beta_j = rnorm(n()),
-           gamma_j = case_when(rep == 1 ~ rnorm(n(), rep_effect, sd = 3),
-                               rep == 0 ~ rnorm(n(), -rep_effect, sd = 3)))
+           gamma_j = case_when(rep == 1 ~ rnorm(n(), rep_effect, sd = 1),
+                               rep == 0 ~ rnorm(n(), -rep_effect, sd = 1)),
+           gamma_j = rnorm(n(), mean = bill_type),
+           gamma_j = scale(gamma_j),
+           rep = ifelse(bill_type > mean(bill_type), 1, 0))
   
   ij_all <- bills |> 
     crossing(group_id = as.character(1:n_groups)) |>  
     left_join(groups, by = "group_id") |> 
     mutate(type_distance = ifelse(group_type == bill_type, 1, 0),
-           pr_abstain = case_when(type_distance == 1 ~ rbeta(n(), 1, 2),
+           pr_abstain = case_when(type_distance == 1 ~ rbeta(n(), 1, 9),
                                   type_distance == 0 ~ rbeta(n(), 9, 1)),
            abstain = rbinom(n(), 1, pr_abstain),
            pr_support = pnorm(gamma_j * theta_i + beta_j),
