@@ -33,7 +33,7 @@ list(
   ),
   tar_target(
     hurdle_irt_specs,
-    set_hurdle_irt_specs()
+    set_irt_specs("hurdle_probit")
   ),
   tar_target(
     hurdle_irt,
@@ -55,10 +55,10 @@ list(
            tau_rate = c(.5, .5, .5, .5, .5)) %>%
       pmap(gen_sim_data_ord)
   ),
-  # tar_target(
-  #   ord_irt_specs,
-  #   set_irt_formula_priors("ordinal")
-  # ),
+  tar_target(
+    ord_irt_specs,
+    set_irt_specs("ordinal_probit")
+  ),
   # tar_target(
   #   ord_irt,
   #   pmap(tibble(input_df = map(sim_data_ord, ~.x$ij_all),
