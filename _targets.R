@@ -24,12 +24,12 @@ tar_option_set(packages = c("here",
 suppressWarnings(library(tidyverse))
 
 list(
-  # Simulations
+  # Simulations - Hurdle
   tar_target(
     sim_data_hurdle,
     gen_sim_data_hurdle(n_groups = 50, 
-                        n_bills = 50,
-                        k_types = 100)
+                        n_bills = 100,
+                        k_types = 10000)
   ),
   tar_target(
     hurdle_irt_specs,
@@ -48,12 +48,13 @@ list(
     hurdle_irt_checks,
     sim_checks(hurdle_irt, sim_data_hurdle$ij_all)
   ),
-  # tar_target(
-  #   sim_data_ord,
-  #   tibble(tau_mean = c(0, 1, 2, 3, 4),
-  #          tau_rate = c(.5, .5, .5, .5, .5)) %>% 
-  #     pmap(gen_sim_data_ord)
-  # ),
+  # Simulations - Ordinal
+  tar_target(
+    sim_data_ord,
+    tibble(tau_mean = c(0, 1, 2, 3, 4),
+           tau_rate = c(.5, .5, .5, .5, .5)) %>%
+      pmap(gen_sim_data_ord)
+  ),
   # tar_target(
   #   ord_irt_specs,
   #   set_irt_formula_priors("ordinal")

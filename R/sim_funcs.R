@@ -29,49 +29,28 @@ gen_sim_data_ord <- function(n_groups = 100,
   ij_all <- bills %>% 
     crossing(group_id = as.character(1:n_groups)) %>% 
     left_join(groups, by = "group_id") %>% 
-    mutate(pr_y_ij_3 = pnorm(gamma_j * theta_i + beta_j - tau_i / sigma_j, sd = sigma_j^2),
-           pr_y_ij_2 = pnorm(tau_i / sigma_j - (gamma_j * theta_i + beta_j), sd = sigma_j^2) -
+    mutate(pr_position_3 = pnorm(gamma_j * theta_i + beta_j - tau_i / sigma_j, sd = sigma_j^2),
+           pr_position_2 = pnorm(tau_i / sigma_j - (gamma_j * theta_i + beta_j), sd = sigma_j^2) -
              pnorm(-tau_i / sigma_j - (gamma_j * theta_i + beta_j), sd = sigma_j^2),
-           pr_y_ij_1 = 1 - pnorm(gamma_j * theta_i + beta_j + tau_i / sigma_j, sd = sigma_j^2),
-           y_ij_det = case_when(pr_y_ij_3 > pr_y_ij_2 & pr_y_ij_3 > pr_y_ij_1 ~ 3,
-                                pr_y_ij_2 > pr_y_ij_3 & pr_y_ij_2 > pr_y_ij_1 ~ 2,
-                                pr_y_ij_1 > pr_y_ij_3 & pr_y_ij_1 > pr_y_ij_2 ~ 1)) %>% 
+           pr_position_1 = 1 - pnorm(gamma_j * theta_i + beta_j + tau_i / sigma_j, sd = sigma_j^2),
+           position_det = case_when(pr_position_3 > pr_position_2 & pr_position_3 > pr_position_1 ~ 3,
+                                pr_position_2 > pr_position_3 & pr_position_2 > pr_position_1 ~ 2,
+                                pr_position_1 > pr_position_3 & pr_position_1 > pr_position_2 ~ 1)) %>% 
     rowwise() %>% 
-    mutate(y_ij = sample(c(1, 2, 3), 1, prob = c(pr_y_ij_1, pr_y_ij_2, pr_y_ij_3))) %>% 
+    mutate(position = sample(c(1, 2, 3), 1, prob = c(pr_position_1, pr_position_2, pr_position_3))) %>% 
     group_by(group_id) %>% 
-    mutate(total_2s = sum(y_ij == 2)) %>% 
+    mutate(total_2s = sum(position == 2)) %>% 
     ungroup() %>% 
     filter(total_2s != n_bills) 
   
-  thetas <- ij_all %>% 
-    select(group_id, theta_i) %>% 
-    distinct()
+  thetas <- pull_thetas(ij_all)
   
-  ij_obs <- ij_all %>% 
-    filter(y_ij != 2)
+  ij_obs_rc <- ij_all |> 
+    mutate(position = ifelse(position == 3, 1, 0)) |> 
+    sim_to_rc()
   
-  ij_obs_rc <- ij_obs %>% 
-    mutate(yea = ifelse(y_ij == 3, 1, 0)) %>% 
-    select(group_id, bill_id, yea) %>% 
-    pivot_wider(id_cols = group_id,
-                values_from = yea,
-                names_from = bill_id) %>% 
-    arrange(as.numeric(group_id)) %>% 
-    select(-group_id) %>% 
-    select(str_sort(names(.), numeric = TRUE)) %>% 
-    rollcall()
-  
-  return(lst(ij_all, ij_obs, ij_obs_rc, thetas))
+  return(lst(ij_all, thetas, ij_all))
 }
-# a <- gen_sim_data()
-# janitor::tabyl(sim_data[[5]]$ij_all$y_ij)
-# a$ij_all %>%
-#   mutate(voted = ifelse(y_ij %in% c(1, 3), 1, 0)) %>%
-#   group_by(group_id) %>%
-#   summarise(vote_avg = mean(voted), tau_i = mean(tau_i),
-#             theta_i = mean(theta_i), business = mean(business)) %>%
-#   ggplot(aes(x = tau_i, y = vote_avg)) +
-#   geom_point()
 
 
 gen_sim_data_hurdle <- function(n_groups,

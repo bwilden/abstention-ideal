@@ -45,47 +45,7 @@ set_irt_formula_priors <- function(model_type) {
   return(lst(irt_formula, irt_family, irt_priors_high_tau, irt_priors_low_tau))
 }
 
-set_inits <- function(seed) {
-  set.seed(seed)
-  list(b_gamma = runif(1, .1, 1),
-       b_theta = runif(1, .1, 1))
-}
 
-run_brm_irt <- function(input_df, 
-                        irt_formula, 
-                        irt_priors,
-                        model_type,
-                        irt_family,
-                        prior_predictive = "no") {
-  
-  if (model_type == "binary") {
-    input_df <- input_df %>% 
-      mutate(y_ij = ifelse(y_ij == 3, 1, 0))
-  }
-  
-  fit <- brm(
-    formula = irt_formula,
-    family = irt_family,
-    prior = irt_priors,
-    data = input_df,
-    seed = 222,
-    iter = 2000,
-    chains = 4, 
-    cores = 4,
-    # inits = list(
-    #   set_inits(1),
-    #   set_inits(2),
-    #   set_inits(3),
-    #   set_inits(4)
-    # ),
-    init = "0",
-    sample_prior = prior_predictive,
-    # adapt_delta = 0.95,
-    # max_treedepth = 15,
-    backend = "cmdstanr"
-  )
-  return(fit)
-}
 
 set_hurdle_irt_specs <- function() {
   family <- custom_family(
@@ -110,7 +70,7 @@ set_hurdle_irt_specs <- function() {
                   theta ~ busi + (1 | group_id),
                   gamma ~ rep + (1 | bill_id),
                   beta ~ (1 | bill_id),
-                  hu ~ type_distance + rep * busi,
+                  hu ~ type_distance + rep + busi,
                   nl = TRUE)
 
   priors <-
