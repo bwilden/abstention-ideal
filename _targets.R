@@ -96,6 +96,13 @@ list(
         dropList = list(lop = NA),
         normalize = TRUE)
   ),
+  tar_target(
+    sim_ord_comparison_plots,
+    tibble(brm_model = ord_irt,
+           pscl_model = pscl_ord_irt,
+           true_thetas = map(sim_data_ord, ~.x$thetas)) |> 
+    pmap(.f = make_sim_comparison_plot)
+  ),
   
   # CFL replication
   tar_target(

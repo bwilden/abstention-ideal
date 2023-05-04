@@ -116,7 +116,7 @@ sim_checks_pscl <- function(ideal_obj, theta_df) {
 }
 
 
-make_sim_comparison_plot <- function(ord_model, pscl_model, true_thetas) {
+make_sim_comparison_plot <- function(brm_model, pscl_model, true_thetas) {
   pscl_draws <- as_tibble(pscl_model$x) %>% 
     pivot_longer(cols = everything(),
                  names_to = "group_id",
@@ -137,7 +137,7 @@ make_sim_comparison_plot <- function(ord_model, pscl_model, true_thetas) {
              .upper = -.upper)
   }
   
-  ord_draws <- ord_model %>% 
+  brm_draws <- brm_model %>% 
     spread_draws(r_group_id__theta[r_group_id, ]) %>% 
     mean_qi(.width = .89) %>% 
     mutate(group_id = as.character(r_group_id),
@@ -148,7 +148,7 @@ make_sim_comparison_plot <- function(ord_model, pscl_model, true_thetas) {
   
   theta_draws <- rbind(
     pscl_draws,
-    ord_draws
+    brm_draws
   )
   
   p <- theta_draws %>%
