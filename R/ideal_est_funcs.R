@@ -2,13 +2,13 @@
 set_irt_specs <- function(model_type) {
   if (model_type == "ordinal_probit") {
     formula <- bf(position | thres(gr = group_id) ~ gamma * theta + beta,
-                  theta ~ 1 + business + (1 | group_id),
-                  gamma ~ 1 + rep + (1 | bill_id),
-                  beta ~ 1 + (1 | bill_id),
+                  theta ~ business + (1 | group_id),
+                  gamma ~ rep + (1 | bill_id),
+                  beta ~ (1 | bill_id),
                   nl = TRUE)
     family <- brmsfamily("cumulative", "probit")
   
-    priors_low_tau <-
+    low_tau <-
       prior(constant(1), class = sd, nlpar = theta) +
       prior(cauchy(0, 2), class = sd, nlpar = gamma) +
       prior(cauchy(0, 2), class = sd, nlpar = beta) +
@@ -19,7 +19,7 @@ set_irt_specs <- function(model_type) {
       prior(normal(0, 1), class = b, nlpar = theta) +
       prior(normal(0, 2), class = Intercept)
     
-    priors_high_tau <-
+    high_tau <-
       prior(constant(1), class = sd, nlpar = theta) +
       prior(cauchy(0, 2), class = sd, nlpar = gamma) +
       prior(cauchy(0, 2), class = sd, nlpar = beta) +
@@ -30,7 +30,7 @@ set_irt_specs <- function(model_type) {
       prior(normal(0, 3), class = b, nlpar = theta) +
       prior(normal(0, 4), class = Intercept)
     
-    priors <- list(priors_high_tau, priors_low_tau)
+    priors <- lst(high_tau, low_tau)
     stanvars <- NULL
   }
   
@@ -88,7 +88,7 @@ run_brm_irt <- function(input_df,
                         irt_formula,
                         irt_priors,
                         irt_family,
-                        irt_stanvars,
+                        irt_stanvars = NULL,
                         ...) {
   fit <- brm(
     irt_formula,

@@ -52,26 +52,27 @@ list(
   tar_target(
     sim_data_ord,
     tibble(tau_mean = c(0, 1, 2, 3, 4),
-           tau_rate = c(.5, .5, .5, .5, .5)) %>%
-      pmap(gen_sim_data_ord)
+           tau_rate = c(.5, .5, .5, .5, .5)) |> 
+      pmap(gen_sim_data_ord,
+           n_groups = 30,
+           n_bills = 90)
   ),
   tar_target(
     ord_irt_specs,
     set_irt_specs("ordinal_probit")
   ),
-  # tar_target(
-  #   ord_irt,
-  #   pmap(tibble(input_df = map(sim_data_ord, ~.x$ij_all),
-  #               irt_priors = list(ord_irt_specs$irt_priors_low_tau,
-  #                                 ord_irt_specs$irt_priors_low_tau,
-  #                                 ord_irt_specs$irt_priors_high_tau,
-  #                                 ord_irt_specs$irt_priors_high_tau,
-  #                                 ord_irt_specs$irt_priors_high_tau)),
-  #        .f = run_brm_irt,
-  #        irt_formula = ord_irt_specs$irt_formula,
-  #        model_type = "ordinal",
-  #        irt_family = ord_irt_specs$irt_family)
-  # ),
+  tar_target(
+    ord_irt,
+    pmap(tibble(input_df = map(sim_data_ord, ~.x$ij_all),
+                irt_priors = list(ord_irt_specs$priors$low_tau,
+                                  ord_irt_specs$priors$low_tau,
+                                  ord_irt_specs$priors$high_tau,
+                                  ord_irt_specs$priors$high_tau,
+                                  ord_irt_specs$priors$high_tau)),
+         .f = run_brm_irt,
+         irt_formula = ord_irt_specs$formula,
+         irt_family = ord_irt_specs$family)
+  ),
   tar_target(
     pscl_hurdle_irt,
     ideal(sim_data_hurdle$ij_obs_rc,

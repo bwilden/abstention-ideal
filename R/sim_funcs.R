@@ -1,6 +1,6 @@
 
-gen_sim_data_ord <- function(n_groups = 100,
-                             n_bills = 300,
+gen_sim_data_ord <- function(n_groups,
+                             n_bills,
                              theta_sd = 1,
                              tau_rate = 0,
                              tau_mean = 0,
