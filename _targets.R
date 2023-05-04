@@ -48,6 +48,20 @@ list(
     hurdle_irt_checks,
     sim_checks(hurdle_irt, sim_data_hurdle$ij_all)
   ),
+  tar_target(
+    pscl_hurdle_irt,
+    ideal(sim_data_hurdle$ij_obs_rc,
+          maxiter = 12500,
+          burnin = 7500,
+          dropList = list(lop = NA),
+          normalize = TRUE)
+  ),
+  tar_target(
+    sim_hurdle_comparison_plot,
+    make_sim_comparison_plot(hurdle_irt, 
+                             pscl_hurdle_irt, 
+                             sim_data_hurdle$thetas)
+  ),
   # Simulations - Ordinal
   tar_target(
     sim_data_ord,
@@ -74,19 +88,16 @@ list(
          irt_family = ord_irt_specs$family)
   ),
   tar_target(
-    pscl_hurdle_irt,
-    ideal(sim_data_hurdle$ij_obs_rc,
-          maxiter = 12500,
-          burnin = 7500,
-          dropList = list(lop = NA),
-          normalize = TRUE)
+    pscl_ord_irt,
+    map(map(sim_data_ord, ~.x$ij_obs_rc),
+        ideal,
+        maxiter = 12500,
+        burnin = 7500,
+        dropList = list(lop = NA),
+        normalize = TRUE)
   ),
-  tar_target(
-    sim_hurdle_comparison_plot,
-    make_sim_comparison_plot(hurdle_irt, 
-                             pscl_hurdle_irt, 
-                             sim_data_hurdle$thetas)
-  ),
+  
+  # CFL replication
   tar_target(
     cfl_data,
     prep_cfl_data()

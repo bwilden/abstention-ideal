@@ -49,7 +49,7 @@ gen_sim_data_ord <- function(n_groups,
     mutate(position = ifelse(position == 3, 1, 0)) |> 
     sim_to_rc()
   
-  return(lst(ij_all, thetas, ij_all))
+  return(lst(ij_all, thetas, ij_obs_rc))
 }
 
 
