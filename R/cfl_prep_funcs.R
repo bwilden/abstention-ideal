@@ -137,18 +137,18 @@ expand_group_dispositions <- function(groups_df,
                                    disposition == "abstain" ~ 2,
                                    disposition == "support" ~ 3),
            rep = if_else(Party == 200, 1, 0)) %>% 
-    select(y_ij = disposition, 
+    select(position = disposition, 
            group_id = orgname, 
            bill_id = BillID,
            business, rep) %>% 
     # Remove groups that abstained on every bill
     group_by(group_id) %>% 
-    mutate(total_2s = sum(y_ij == 2)) %>% 
+    mutate(total_2s = sum(position == 2)) %>% 
     ungroup() %>% 
     filter(total_2s != n_bills) %>% 
     # Bills need at least 5 votes
     group_by(bill_id) %>% 
-    mutate(total_2s_bill = sum(y_ij == 2)) %>% 
+    mutate(total_2s_bill = sum(position == 2)) %>% 
     ungroup() %>% 
     filter(total_2s_bill < n_groups - 5) %>% 
     # Remove problematic periods
@@ -156,11 +156,11 @@ expand_group_dispositions <- function(groups_df,
   
   # Create binary data set
   ij_obs <- ij_all %>% 
-    filter(y_ij != 2) %>% 
-    mutate(y_ij = if_else(y_ij == 3, 1, 0))
+    filter(position != 2) %>% 
+    mutate(position = if_else(position == 3, 1, 0))
   
   ij_obs_wide <- ij_obs %>% 
-    rename(yea = y_ij) %>% 
+    rename(yea = position) %>% 
     select(group_id, bill_id, yea) %>% 
     pivot_wider(id_cols = group_id,
                 values_from = yea,
