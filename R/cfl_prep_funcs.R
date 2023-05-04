@@ -36,9 +36,9 @@ prep_cfl_data <- function() {
   pos_all_edges <- pos_all %>% 
     dplyr::select(orgname, BillID, disposition, Party, grouptype)
   pos_all_edges <- pos_all_edges %>% 
-    filter(complete.cases(pos_all_edges))
+    filter(complete.cases(pos_all_edges)) |> 
     # bwilden - Added business group dummy
-    # mutate(business = if_else(str_starts(grouptype, "G"), 1, 0))
+    mutate(business = if_else(str_starts(grouptype, "G"), 1, 0))
   
   ## JOIN DATA TOGETHER
   

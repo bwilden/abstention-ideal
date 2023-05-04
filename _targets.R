@@ -108,15 +108,15 @@ list(
   tar_target(
     cfl_data,
     prep_cfl_data()
+  ),
+  tar_target(
+    cfl_exp_data,
+    map(.x = c("110", "111", "112", "113", "114"),
+        .f = expand_group_dispositions,
+        groups_df = cfl_data$groups,
+        n_groups = 200,
+        n_bills = 600)
   )
-  # tar_target(
-  #   cfl_exp_data,
-  #   map(.x = c("110", "111", "112", "113", "114"),
-  #       .f = expand_group_dispositions,
-  #       groups_df = cfl_data$groups,
-  #       n_groups = 200,
-  #       n_bills = 600)
-  # ),
   # tar_target(
   #   cfl_pscl_irt,
   #   map(map(cfl_exp_data, ~.x$ij_obs_rc),
