@@ -90,6 +90,7 @@ prep_cfl_data <- function() {
   return(lst(groups, legislators))
 }
 
+
 expand_group_dispositions <- function(groups_df, 
                                       congress,
                                       n_groups,

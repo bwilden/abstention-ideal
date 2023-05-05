@@ -120,6 +120,14 @@ list(
         n_bills = 50)
   ),
   tar_target(
+    cfl_group_types,
+    cfl_data$groups |> 
+      select(orgname, grouptype) |> 
+      distinct() |> 
+      mutate(group_id = str_remove_all(orgname, "\\."))
+    # Coalesce and rename group types
+  ),
+  tar_target(
     cfl_pscl_irt,
     map(map(cfl_exp_data, ~.x$ij_obs_rc),
         ideal,
@@ -151,6 +159,7 @@ list(
         make_cfl_comparison_plot,
         qis = cfl_qis)
   ),
+  # Fig3
   tar_target(
     cfl_density_plot,
     make_cfl_density_plot(cfl_qis)
@@ -179,5 +188,26 @@ list(
                                                    "Center for American Progress",
                                                    "United Automobile Workers",
                                                    "AFL-CIO"))
+  ),
+  # Fig2
+  tar_target(
+    coc_compare_plot,
+    make_group_posteriors_plot(cfl_draws,
+                               selected_groups = c("US Chamber of Commerce",
+                                                   "National Black Chamber of Commerce",
+                                                   "California Chamber of Commerce",
+                                                   "US Hispanic Chamber of Commerce",
+                                                   "National Gay & Lesbian Chamber of Commerce",
+                                                   "US Womens Chamber of Commerce"))
   )
+  
+  # Fig1 Group Pairs
+  
+  # Fig4 by Group Type
+  
+  # Fig5 by Sector
+  
+  # Fig6 by Single Issue
+  
+  # Fig7 / Fig8 weights?
 )
