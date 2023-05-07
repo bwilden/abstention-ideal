@@ -65,3 +65,24 @@ make_group_posteriors_plot <- function(draws, selected_groups) {
   
   return(p)
 }
+
+make_cfl_group_type_plot <- function(qis, group_types_df) {
+  p <- qis |> 
+    left_join(group_types_df) |> 
+    ggplot(aes(y = forcats::fct_reorder(grouptype,
+                                        theta_est,
+                                        .fun = median,
+                                        .desc = TRUE),
+           x = theta_est, fill = method)) +
+    stat_dist_halfeye(alpha = .75, .width = .89, size = 1) +
+    scale_fill_manual(values = rev(met.brewer("Isfahan1", n = 2))) +
+    theme_ggdist() +
+    labs(x = expression(theta),
+         y = "") +
+    xlim(-4, 3) +
+    theme(legend.title = element_blank(), 
+          legend.position = "bottom",
+          text = element_text(family = "serif"))
+
+  return(p)
+}
