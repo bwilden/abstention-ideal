@@ -116,8 +116,8 @@ list(
     map(.x = c("110", "111", "112", "113", "114"),
         .f = expand_group_dispositions,
         groups_df = cfl_data$groups,
-        n_groups = 25,
-        n_bills = 50)
+        n_groups = 100,
+        n_bills = 300)
   ),
   tar_target(
     cfl_group_types,
@@ -199,11 +199,15 @@ list(
                                                    "US Hispanic Chamber of Commerce",
                                                    "National Gay & Lesbian Chamber of Commerce",
                                                    "US Womens Chamber of Commerce"))
+  ),
+  # Fig4
+  tar_target(
+    cfl_group_type_plot,
+    make_cfl_group_type_plot(cfl_qis,
+                             cfl_group_types)
   )
   
   # Fig1 Group Pairs
-  
-  # Fig4 by Group Type
   
   # Fig5 by Sector
   
