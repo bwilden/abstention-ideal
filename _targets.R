@@ -120,12 +120,16 @@ list(
         n_bills = 300)
   ),
   tar_target(
-    cfl_group_types,
-    cfl_data$groups |> 
-      select(orgname, grouptype) |> 
-      distinct() |> 
-      mutate(group_id = str_remove_all(orgname, "\\."))
-    # Coalesce and rename group types
+    cfl_posteriors_file,
+    here::here("data-raw", 
+               "Polarized_Pluralism_Replication", 
+               "Data", 
+               "group_fullchains_final.csv"),
+    format = "file"
+  ),
+  tar_target(
+    cfl_group_info,
+    get_cfl_group_info(cfl_posteriors_file)
   ),
   tar_target(
     cfl_pscl_irt,
@@ -191,7 +195,7 @@ list(
   ),
   # Fig2
   tar_target(
-    coc_compare_plot,
+    chamber_compare_plot,
     make_group_posteriors_plot(cfl_draws,
                                selected_groups = c("US Chamber of Commerce",
                                                    "National Black Chamber of Commerce",
@@ -199,13 +203,13 @@ list(
                                                    "US Hispanic Chamber of Commerce",
                                                    "National Gay & Lesbian Chamber of Commerce",
                                                    "US Womens Chamber of Commerce"))
-  ),
-  # Fig4
-  tar_target(
-    cfl_group_type_plot,
-    make_cfl_group_type_plot(cfl_qis,
-                             cfl_group_types)
   )
+  # Fig4
+  # tar_target(
+  #   cfl_group_type_plot,
+  #   make_cfl_group_type_plot(cfl_qis,
+  #                            cfl_group_types)
+  # )
   
   # Fig1 Group Pairs
   

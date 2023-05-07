@@ -174,6 +174,18 @@ expand_group_dispositions <- function(groups_df,
   return(lst(ij_all, ij_obs, ij_obs_rc))
 }
 
+
+get_cfl_group_info <- function(cfl_posteriors) {
+  groups_info <- read_csv(cfl_posteriors) |> 
+    filter(respondent_type == "Organization") |> 
+    select(orgname, usecode, Catname, Industry, Sector, Sector.Long) |> 
+    distinct() |> 
+    mutate(group_id = str_remove_all(orgname, "\\."))
+  
+  return(groups_info)
+}
+
+
 # tar_load(cfl_exp_data)
 # cfl_exp_data$ij_all
 # cfl_exp_data$ij_obs
