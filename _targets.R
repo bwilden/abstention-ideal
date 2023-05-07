@@ -155,7 +155,8 @@ list(
   tar_target(
     cfl_qis,
     calc_cfl_qis(cfl_ord_irt[[5]],
-                 cfl_pscl_irt[[5]])
+                 cfl_pscl_irt[[5]],
+                 group_info_df = cfl_group_info)
   ),
   tar_target(
     cfl_comparison_plot,
@@ -166,12 +167,13 @@ list(
   # Fig3
   tar_target(
     cfl_density_plot,
-    make_cfl_density_plot(cfl_qis)
+    make_group_qis_plot(cfl_qis, "all", "all")
   ),
   tar_target(
     cfl_draws,
     calc_group_posteriors(cfl_ord_irt[[5]],
-                          cfl_pscl_irt[[5]])
+                          cfl_pscl_irt[[5]],
+                          group_info_df = cfl_group_info)
   ),
   tar_target(
     cfl_disagree_groups,

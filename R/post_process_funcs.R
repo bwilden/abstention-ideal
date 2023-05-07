@@ -1,5 +1,5 @@
 
-calc_cfl_qis <- function(ord_model, pscl_model) {
+calc_cfl_qis <- function(ord_model, pscl_model, group_info_df) {
   ord_qis <- ord_model  %>%
     spread_draws(r_group_id__theta[r_group_id, ]) %>%
     median_qi(.width = .89) %>%
@@ -27,12 +27,14 @@ calc_cfl_qis <- function(ord_model, pscl_model) {
                        method, plot_seq_ord, plot_seq_pscl),
     pscl_qis %>% select(group_id, theta_est, .lower, .upper, .width, 
                         method, plot_seq_ord, plot_seq_pscl)
-  )
+  ) |> 
+    left_join(group_info_df, by = "group_id") |> 
+    mutate(all = "all")
   
   return(all_qis)
 }
 
-calc_group_posteriors <- function(ord_model, pscl_model) {
+calc_group_posteriors <- function(ord_model, pscl_model, group_info_df) {
   ord_draws <- ord_model  %>%
     spread_draws(r_group_id__theta[r_group_id, ]) %>% 
     mutate(group_id = str_replace_all(r_group_id, "\\.", " "),
@@ -50,7 +52,8 @@ calc_group_posteriors <- function(ord_model, pscl_model) {
   all_draws <- rbind(
     ord_draws %>% select(group_id, theta_est, method),
     pscl_draws %>% select(group_id, theta_est, method)
-  )
+  ) |> 
+    left_join(group_info_df, by = "group_id")
   
   return(all_draws)
 }
