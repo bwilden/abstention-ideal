@@ -205,13 +205,19 @@ list(
                                                    "US Hispanic Chamber of Commerce",
                                                    "National Gay & Lesbian Chamber of Commerce",
                                                    "US Womens Chamber of Commerce"))
-  )
+  ),
   # Fig4
-  # tar_target(
-  #   cfl_group_type_plot,
-  #   make_cfl_group_type_plot(cfl_qis,
-  #                            cfl_group_types)
-  # )
+  tar_target(
+    cfl_group_type_plot,
+    make_group_qis_plot(cfl_qis,
+                        type_category = "usecode",
+                        c("Corporations", "Health", 
+                          "Education", "Occupational Associations",
+                          "Trade and Other Business Associations", 
+                          "Socail Welfare or Poor", "Public Interest", 
+                          "Identity Groups", "Unions")
+    )
+  )
   
   # Fig1 Group Pairs
   

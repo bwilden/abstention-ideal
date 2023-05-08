@@ -56,7 +56,8 @@ make_group_qis_plot <- function(qis, type_category, selected_types) {
   
   p <- qis %>%
     ggplot(aes(x = theta_est, fill = method, y = grouptype)) +
-    stat_halfeye(alpha = .75, trim = FALSE) +
+    stat_halfeye(alpha = .75, trim = FALSE, normalize = "xy",
+                 interval_alpha = 0, point_alpha = 0) +
     scale_fill_manual(values = rev(met.brewer("Isfahan1", n = 2))) +
     # scale_y_continuous(NULL, breaks = NULL) +
     theme_ggdist() +
