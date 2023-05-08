@@ -211,19 +211,31 @@ list(
     cfl_group_type_plot,
     make_group_qis_plot(cfl_qis,
                         type_category = "usecode",
-                        c("Corporations", "Health", 
+                        selected_types = c("Corporations", "Health", 
                           "Education", "Occupational Associations",
                           "Trade and Other Business Associations", 
                           "Socail Welfare or Poor", "Public Interest", 
                           "Identity Groups", "Unions")
     )
+  ),
+  tar_target(
+    cfl_sector_plot,
+    make_group_qis_plot(cfl_qis,
+                        type_category = "Sector",
+                        selected_types = cfl_qis |> 
+                          filter(!(Sector %in% c("Ideology/Single-Issue", 
+                                                 "Party Cmte", "Unknown", 
+                                                 "Other", "Non-contribution")),
+                                 !is.na(Sector)) |> 
+                          pull(Sector))
+  ),
+  tar_target(
+    cfl_single_issue_plot,
+    make_group_qis_plot(cfl_qis |> 
+                          filter(Sector == "Ideology/Single-Issue"),
+                        type_category = "Catname",
+                        selected_types = cfl_qis |>
+                          filter(Sector == "Ideology/Single-Issue") |> 
+                          pull(Catname))
   )
-  
-  # Fig1 Group Pairs
-  
-  # Fig5 by Sector
-  
-  # Fig6 by Single Issue
-  
-  # Fig7 / Fig8 weights?
 )

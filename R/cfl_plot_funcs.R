@@ -52,12 +52,17 @@ make_cfl_group_type_plot <- function(qis, group_types_df) {
 make_group_qis_plot <- function(qis, type_category, selected_types) {
   qis <- qis |> 
     mutate(grouptype := !!sym(type_category)) |> 
-    filter(grouptype %in% selected_types)
+    filter(grouptype %in% selected_types) |> 
+    group_by(grouptype) |> 
+    filter(n() > 3)
   
   p <- qis %>%
     ggplot(aes(x = theta_est, fill = method, y = grouptype)) +
     stat_halfeye(alpha = .75, trim = FALSE, normalize = "xy",
                  interval_alpha = 0, point_alpha = 0) +
+    # geom_vline(xintercept = -.3) +
+    # geom_vline(xintercept = .4) + 
+    # facet_wrap(~ method) +
     scale_fill_manual(values = rev(met.brewer("Isfahan1", n = 2))) +
     # scale_y_continuous(NULL, breaks = NULL) +
     theme_ggdist() +
@@ -70,6 +75,13 @@ make_group_qis_plot <- function(qis, type_category, selected_types) {
   
   return(p)
 }
+
+# make_group_qis_plot(cfl_qis |> 
+#                       filter(Sector == "Ideology/Single-Issue"),
+#                     type_category = "Catname",
+#                     selected_types = cfl_qis |>
+#                       filter(Sector == "Ideology/Single-Issue") |> 
+#                       pull(Catname)) |> select(grouptype)
 
 
 make_group_posteriors_plot <- function(draws, selected_groups) {
