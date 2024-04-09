@@ -15,11 +15,11 @@ make_cfl_comparison_plot <- function(qis, ref_model) {
     ggplot(aes(x = theta_est, y = plot_seq, color = method)) +
     geom_point() +
     geom_pointrangeh(aes(xmin = .lower, xmax = .upper), fatten = 0, alpha = .25) +
-    scale_y_continuous(NULL, breaks = NULL) +
+    # scale_y_continuous(NULL, breaks = NULL) +
     scale_color_manual(values = rev(met.brewer("Isfahan1", n = 2))) +
     theme_ggdist() +
     labs(x = expression(theta),
-         y = expression("Groups Ordered by Abstention Model " ~ theta),
+         y = expression("Groups Ordered by Abstention Model Median" ~ theta),
          caption = "Posterior medians and 89% intervals") +
     theme(legend.title = element_blank(), 
           legend.position = "bottom",
@@ -106,3 +106,22 @@ make_group_posteriors_plot <- function(draws, selected_groups) {
 }
 
 
+make_cfl_density_plot <- function(qis) {
+  p = qis %>% 
+    ggplot(aes(x = theta_est, fill = method)) +
+    stat_halfeye(alpha = .75, trim = FALSE, 
+                 interval_alpha = 0, point_alpha = 0) +
+    scale_fill_manual(values = rev(met.brewer("Isfahan1", n = 2))) +
+    theme_ggdist() +
+    labs(x = expression("Median " ~ theta),
+         y = "") +
+    xlim(-4, 3) +
+    theme(legend.title = element_blank(), 
+          legend.position = "bottom",
+          axis.line.y.left = element_blank(),
+          text = element_text(family = "serif"),
+          axis.text.y.left = element_blank())
+  
+  return(p)
+}
+# make_cfl_density_plot(cfl_qis)

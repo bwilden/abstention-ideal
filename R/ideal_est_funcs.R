@@ -97,11 +97,13 @@ run_brm_irt <- function(input_df,
     family = irt_family,
     stanvars = irt_stanvars,
     backend = "cmdstanr",
-    seed = 22,
+    seed = 222,
     iter = 2000,
     chains = 4,
+    init = "0",
     threads = threading(2),
     cores = parallel::detectCores() - 2,
+    silent = 0,
     ...
   )
   return(fit)

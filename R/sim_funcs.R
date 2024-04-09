@@ -21,8 +21,10 @@ gen_sim_data_ord <- function(n_groups,
     bill_id = as.character(1:n_bills)
   ) %>% 
     mutate(rep = ifelse(row_number() %% 2 == 0, 1, 0),
+           # beta should not be affected by partisanship
            beta_j = case_when(rep == 1 ~ rnorm(n(), 0, beta_sd),
                               rep == 0 ~ rnorm(n(), 0, beta_sd)),
+           # but gamma is
            gamma_j = case_when(rep == 1 ~ rnorm(n(), rep_effect, gamma_sd),
                                rep == 0 ~ rnorm(n(), 0, gamma_sd)))
   

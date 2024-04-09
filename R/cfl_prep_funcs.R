@@ -1,5 +1,5 @@
 
-prep_cfl_data <- function() {
+prep_cfl_data <- function(cfl_group_info_df) {
   ## READ IN THE MAPLIGHT DATA
   
   pos_all <- read_csv(here("data-raw", "Polarized_Pluralism_Replication", "Data", "all_positions_including114-csv.csv"))
@@ -8,7 +8,8 @@ prep_cfl_data <- function() {
   
   # bwilden - getting rollcall vote data with codes for bill subjects
   # rollcalls <- read_csv(here("data-raw", "Polarized_Pluralism_Replication", "Data", "HSall_rollcalls.csv"))
-  rollcalls <- jsonlite::fromJSON("https://voteview.com/static/data/out/rollcalls/HSall_rollcalls.json", flatten = TRUE)
+  rollcalls <- jsonlite::fromJSON("https://voteview.com/static/data/out/rollcalls/HSall_rollcalls.json", 
+                                  flatten = TRUE)
   
   votes <- read_csv(here("data-raw", "Polarized_Pluralism_Replication", "Data", "HSall_votes.csv"))
   
@@ -82,7 +83,10 @@ prep_cfl_data <- function() {
   groups <- rollcalls |> 
     select(BillID, issue_codes, crs_subjects, peltzman_codes, crs_policy_area) |> 
     distinct() |> 
-    right_join(pos_all_edges, by = "BillID")
+    right_join(pos_all_edges, by = "BillID") |> 
+  # bwilden - merging in group types
+    left_join(cfl_group_info_df, by = "orgname") |> 
+    mutate(group_id = str_remove_all(orgname, "\\."))
   
   # bwilden - Renamed data
   legislators <- rollcalls
@@ -90,20 +94,38 @@ prep_cfl_data <- function() {
   return(lst(groups, legislators))
 }
 
+find_top_groups <- function(input_df, type_category, top_n) {
+  top_groups <- input_df |> 
+    group_by(!!sym(type_category), orgname) |> 
+    tally() |> 
+    arrange(!!sym(type_category), -n) |> 
+    group_by(!!sym(type_category)) |> 
+    slice_head(n = top_n) |> 
+    pull(orgname)
+  return(top_groups)
+}
 
 expand_group_dispositions <- function(groups_df, 
                                       congress,
-                                      n_groups,
-                                      n_bills) {
+                                      n_groups = NULL,
+                                      n_bills,
+                                      ...) {
   groups_df <- groups_df %>% 
     filter(str_starts(BillID, congress))
   
-  top_groups <- groups_df %>% 
-    group_by(orgname) %>% 
-    summarise(n = n()) %>% 
-    arrange(desc(n)) %>% 
-    slice(1:n_groups) %>% 
-    pull(orgname)
+  # top_sector <- find_top_groups(groups_df, "Sector", ...)
+  # top_group_type <- find_top_groups(groups_df, "usecode", ...)
+  # 
+  # top_groups <- c(top_sector, top_group_type) |> unique()
+  
+  top_groups <- groups_df %>%
+    group_by(orgname) %>%
+    summarise(n = n()) %>%
+    arrange(desc(n)) %>%
+    slice(1:n_groups) %>%
+    pull(orgname) |>
+    unique()
+  
   top_bills <- groups_df %>% 
     group_by(BillID) %>% 
     summarise(n = n()) %>% 
@@ -126,7 +148,7 @@ expand_group_dispositions <- function(groups_df,
                 select(BillID, Party) %>% 
                 distinct()) %>% 
     left_join(groups_df %>% 
-                select(orgname, business) %>% 
+                select(orgname, business, usecode, Catname, Industry, Sector) %>% 
                 distinct()) %>% 
     distinct() %>% 
     # If a business is ever a business it's a business
@@ -141,7 +163,7 @@ expand_group_dispositions <- function(groups_df,
     select(position = disposition, 
            group_id = orgname, 
            bill_id = BillID,
-           business, rep) %>% 
+           business, rep, usecode, Catname, Industry, Sector) %>% 
     # Remove groups that abstained on every bill
     group_by(group_id) %>% 
     mutate(total_2s = sum(position == 2)) %>% 
@@ -151,8 +173,8 @@ expand_group_dispositions <- function(groups_df,
     group_by(bill_id) %>% 
     mutate(total_2s_bill = sum(position == 2)) %>% 
     ungroup() %>% 
-    filter(total_2s_bill < n_groups - 5) %>% 
-    # Remove problematic periods
+    filter(total_2s_bill < length(top_groups) - 5) %>% 
+    # Remove problematic period characters
     mutate(group_id = str_remove_all(group_id, "\\."))
   
   # Create binary data set

@@ -1,17 +1,9 @@
 
 library(targets)
-library(tarchetypes)
 
 # Loading functions
-source(here::here("R", "sim_funcs.R"))
-source(here::here("R", "cfl_prep_funcs.R"))
-source(here::here("R", "ideal_est_funcs.R"))
-source(here::here("R", "sim_plot_funcs.R"))
-source(here::here("R", "post_process_funcs.R"))
-source(here::here("R", "cfl_plot_funcs.R"))
+tar_source("R")
 
-options(tidyverse.quiet = TRUE)
-set.seed(111)
 tar_option_set(packages = c("here",
                             "tidyverse",
                             "MetBrewer",
@@ -23,55 +15,55 @@ tar_option_set(packages = c("here",
                             "pscl",
                             "ggstance",
                             "patchwork"))
-suppressWarnings(library(tidyverse))
+set.seed(111)
 
 list(
   # Simulations - Hurdle
-  tar_target(
-    sim_data_hurdle,
-    gen_sim_data_hurdle(n_groups = 50, 
-                        n_bills = 100,
-                        k_types = 10000)
-  ),
-  tar_target(
-    hurdle_irt_specs,
-    set_irt_specs("hurdle_probit")
-  ),
-  tar_target(
-    hurdle_irt,
-    run_brm_irt(sim_data_hurdle$ij_all,
-                irt_priors = hurdle_irt_specs$priors,
-                irt_stanvars = hurdle_irt_specs$stanvars,
-                irt_formula = hurdle_irt_specs$formula,
-                irt_family = hurdle_irt_specs$family)
-    
-  ),
-  tar_target(
-    hurdle_irt_checks,
-    sim_checks(hurdle_irt, sim_data_hurdle$ij_all)
-  ),
-  tar_target(
-    pscl_hurdle_irt,
-    ideal(sim_data_hurdle$ij_obs_rc,
-          maxiter = 12500,
-          burnin = 7500,
-          dropList = list(lop = NA),
-          normalize = TRUE)
-  ),
-  tar_target(
-    sim_hurdle_comparison_plot,
-    make_sim_comparison_plot(hurdle_irt, 
-                             pscl_hurdle_irt, 
-                             sim_data_hurdle$thetas)
-  ),
+  # tar_target(
+  #   sim_data_hurdle,
+  #   gen_sim_data_hurdle(n_groups = 50, 
+  #                       n_bills = 100,
+  #                       k_types = 10000)
+  # ),
+  # tar_target(
+  #   hurdle_irt_specs,
+  #   set_irt_specs("hurdle_probit")
+  # ),
+  # tar_target(
+  #   hurdle_irt,
+  #   run_brm_irt(sim_data_hurdle$ij_all,
+  #               irt_priors = hurdle_irt_specs$priors,
+  #               irt_stanvars = hurdle_irt_specs$stanvars,
+  #               irt_formula = hurdle_irt_specs$formula,
+  #               irt_family = hurdle_irt_specs$family)
+  #   
+  # ),
+  # tar_target(
+  #   hurdle_irt_checks,
+  #   sim_checks(hurdle_irt, sim_data_hurdle$ij_all)
+  # ),
+  # tar_target(
+  #   pscl_hurdle_irt,
+  #   ideal(sim_data_hurdle$ij_obs_rc,
+  #         maxiter = 12500,
+  #         burnin = 7500,
+  #         dropList = list(lop = NA),
+  #         normalize = TRUE)
+  # ),
+  # tar_target(
+  #   sim_hurdle_comparison_plot,
+  #   make_sim_comparison_plot(hurdle_irt, 
+  #                            pscl_hurdle_irt, 
+  #                            sim_data_hurdle$thetas)
+  # ),
   # Simulations - Ordinal
   tar_target(
     sim_data_ord,
     tibble(tau_mean = c(0, 1, 2, 3, 4),
            tau_rate = c(.5, .5, .5, .5, .5)) |> 
       pmap(gen_sim_data_ord,
-           n_groups = 30,
-           n_bills = 90)
+           n_groups = 100,
+           n_bills = 300)
   ),
   tar_target(
     ord_irt_specs,
@@ -108,16 +100,21 @@ list(
   
   # CFL replication
   tar_target(
+    cfl_group_info,
+    get_cfl_group_info(cfl_posteriors_file)
+  ),
+  tar_target(
     cfl_data,
-    prep_cfl_data()
+    prep_cfl_data(cfl_group_info)
   ),
   tar_target(
     cfl_exp_data,
-    map(.x = c("110", "111", "112", "113", "114"),
+    map(.x = c("113"),
         .f = expand_group_dispositions,
         groups_df = cfl_data$groups,
-        n_groups = 100,
-        n_bills = 300)
+        # top_n = 15,,
+        n_groups = 200,
+        n_bills = 600)
   ),
   tar_target(
     cfl_posteriors_file,
@@ -126,10 +123,6 @@ list(
                "Data", 
                "group_fullchains_final.csv"),
     format = "file"
-  ),
-  tar_target(
-    cfl_group_info,
-    get_cfl_group_info(cfl_posteriors_file)
   ),
   tar_target(
     cfl_pscl_irt,
@@ -148,14 +141,14 @@ list(
         irt_family = ord_irt_specs$family,
         irt_priors = ord_irt_specs$priors$high_tau)
   ),
-  tar_target(
-    cfl_ord_irt_checks,
-    check_brms_model(cfl_ord_irt[[5]])
-  ),
+  # tar_target(
+  #   cfl_ord_irt_checks,
+  #   check_brms_model(cfl_ord_irt[[1]])
+  # ),
   tar_target(
     cfl_qis,
-    calc_cfl_qis(cfl_ord_irt[[5]],
-                 cfl_pscl_irt[[5]],
+    calc_cfl_qis(cfl_ord_irt[[1]],
+                 cfl_pscl_irt[[1]],
                  group_info_df = cfl_group_info)
   ),
   tar_target(
@@ -167,12 +160,12 @@ list(
   # Fig3
   tar_target(
     cfl_density_plot,
-    make_group_qis_plot(cfl_qis, "all", "all")
+    make_cfl_density_plot(cfl_qis)
   ),
   tar_target(
     cfl_draws,
-    calc_group_posteriors(cfl_ord_irt[[5]],
-                          cfl_pscl_irt[[5]],
+    calc_group_posteriors(cfl_ord_irt[[1]],
+                          cfl_pscl_irt[[1]],
                           group_info_df = cfl_group_info)
   ),
   tar_target(

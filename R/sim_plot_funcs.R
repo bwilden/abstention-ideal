@@ -128,7 +128,7 @@ make_sim_comparison_plot <- function(brm_model, pscl_model, true_thetas) {
     ungroup() %>% 
     left_join(true_thetas) %>% 
     na.omit() %>% 
-    mutate(method = "pscl Model")
+    mutate(method = "Traditional Model")
   
   if (cor(pscl_draws$theta_est, pscl_draws$theta_i) < 0) {
     pscl_draws <- pscl_draws %>%
