@@ -2,7 +2,7 @@
 prep_cfl_data <- function(cfl_group_info_df) {
   ## READ IN THE MAPLIGHT DATA
   
-  pos_all <- read_csv(here("data-raw", "Polarized_Pluralism_Replication", "Data", "all_positions_including114-csv.csv"))
+  pos_all <- read_csv(here("data-raw", "all_positions_including114-csv.csv"))
   
   ## READ IN THE ROLL CALL DATA, VOTES
   
@@ -11,11 +11,11 @@ prep_cfl_data <- function(cfl_group_info_df) {
   rollcalls <- jsonlite::fromJSON("https://voteview.com/static/data/out/rollcalls/HSall_rollcalls.json", 
                                   flatten = TRUE)
   
-  votes <- read_csv(here("data-raw", "Polarized_Pluralism_Replication", "Data", "HSall_votes.csv"))
+  votes <- read_csv(here("data-raw", "HSall_votes.csv"))
   
   ## READ IN BILL-SPECIFIC INFORMATION FROM CONGRESSIONAL BILLS PROJECT
   
-  cbp <- read_csv(here("data-raw", "Polarized_Pluralism_Replication", "Data", "bills93-114 2.csv"))
+  cbp <- read_csv(here("data-raw", "bills93-114 2.csv"))
   
   #standardize bill types in CBP to match Maplight ids
   pos_all$prefix[pos_all$prefix == "S"] <- "s"
