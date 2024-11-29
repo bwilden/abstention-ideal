@@ -2,7 +2,7 @@
 title: "Ideal Point Estimation with 99% Missing Data"
 format: 
   gfm:
-    dpi: 300
+    fig-dpi: 300
 execute: 
   echo: false
   message: false
@@ -23,7 +23,7 @@ pacman::p_load(
  
 $$
 \begin{aligned}
-  \text{Pr}(y_{ij} &= \text{Support}) = \Phi(\gamma_j\theta_i + \xi_j)
+  \text{Pr}(y_{ij} = \text{Support}) &= \Phi(\gamma_j\theta_i + \xi_j)
 \end{aligned}
 $$ {#eq-irt}
 

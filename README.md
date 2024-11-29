@@ -3,7 +3,7 @@
 
 <span id="eq-irt">$$
 \begin{aligned}
-  \text{Pr}(y_{ij} &= \text{Support}) = \Phi(\gamma_j\theta_i + \xi_j)
+  \text{Pr}(y_{ij} = \text{Support}) &= \Phi(\gamma_j\theta_i + \xi_j)
 \end{aligned}
  \qquad(1)$$</span>
 
