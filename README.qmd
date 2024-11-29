@@ -1,0 +1,159 @@
+---
+title: "Ideal Point Estimation with 99% Missing Data"
+format: html
+execute: 
+  echo: false
+  message: false
+  warning: false
+---
+
+```{r}
+pacman::p_load(
+  "targets",
+  "dplyr",
+  "ggplot2",
+  "ggdist",
+  "MetBrewer",
+  "qreport"
+)
+```
+
+ 
+$$
+\begin{aligned}
+  \text{Pr}(y_{ij} &= \text{Support}) = \Phi(\gamma_j\theta_i + \xi_j)
+\end{aligned}
+$$ {#eq-irt}
+
+```{r}
+#| label: fig-irt
+#| fig-cap: "Binary IRT Model"
+#| fig-height: 4
+tau_plus <- .7
+tau_minus <- -2
+tau_mid <- (tau_plus + tau_minus) / 2
+
+plot_labs <- tibble(x = c(tau_mid, 0),
+                    y = c(-.02, .03),
+                    label = c("0", "gamma[j] * theta[i] + xi[j]"))
+tibble(z = seq(from = -3.75, to = 3.75, length.out = 1e3)) %>% 
+  mutate(d = dnorm(x = z, mean = 0, sd = 1)) %>% 
+  ggplot(aes(x = z, y = d)) +
+  geom_line(color = "black") +
+  geom_area(aes(fill = z <= tau_mid), alpha = 1/4) +
+  geom_segment(x = tau_mid, xend = tau_mid, y = 0, yend = dnorm(tau_mid), linetype = 3)+
+  geom_segment(x = tau_mid, xend = tau_mid, y = 0, yend = .01) +
+  geom_segment(x = 0, xend = 0, y = 0, yend = .01) +
+  annotate("text", x = plot_labs$x, y = plot_labs$y, label = parse(text = plot_labs$label),
+           size = 4, family = "serif") +
+  annotate("text", x = 2.7, y = dnorm(1), 
+           label = parse(text = "Pr(y[ij] == Support)"),
+           size = 4, family = "serif") +
+  geom_curve(aes(x = 2.7, y = dnorm(1.1),
+             xend = 1, yend = .1),
+             arrow = arrow(length = unit(.02, "npc")), curvature = -.25) +
+  annotate("text", x = -2.7, y = dnorm(-1.5), 
+           label = parse(text = "Pr(y[ij] == Oppose)"),
+           size = 4, family = "serif") +
+  geom_curve(aes(x = -2.7, y = dnorm(-1.6),
+             xend = -1.6, yend = .05),
+             arrow = arrow(length = unit(.02, "npc")), curvature = .25) +
+  geom_hline(yintercept = 0) +
+  scale_x_continuous(NULL, breaks = NULL, name = parse(text = "y[ij]")) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-3.25, 3.25)) +
+  scale_fill_manual(values = met.brewer("Isfahan1", n = 2),
+                    breaks = NULL) +
+  theme_ggdist() +
+  theme(axis.line.y.left = element_blank(),
+        panel.background = element_rect(fill = "transparent",colour = NA),
+        plot.background = element_rect(fill = "transparent",colour = NA))
+```
+
+
+
+$$
+\begin{aligned}
+   \text{Pr}(y_{ij} = \text{Support}) &= \Phi(\gamma_j\theta_i + \xi_j - \tau_i) \\[-10pt]
+   \text{Pr}(y_{ij} = \text{Abstain}) &= \Phi(\tau_i - (\gamma_j\theta_i + \xi_j)) - \Phi(-\tau_i - (\gamma_j\theta_i + \xi_j)) \\[-10pt]
+   \text{Pr}(y_{ij} = \text{Oppose}) &= 1 - \Phi(\gamma_j\theta_i + \xi_j + \tau_i) 
+\end{aligned}
+$$ {#eq-irt-tau}
+
+```{r}
+#| label: fig-irt-abs
+#| fig-cap: "Abstention IRT Model"
+#| fig-height: 4
+plot_labs <- tibble(x = c(tau_minus, tau_mid, 0, tau_plus),
+                    y = c(-.02, -.02, .03, -.02),
+                    label = c("-tau[i]", "0", "gamma[j] * theta[i] + xi[j]", "tau[i]"))
+tibble(z = seq(from = -3.75, to = 3.75, length.out = 1e3)) %>% 
+  mutate(d = dnorm(x = z, mean = 0, sd = 1)) %>% 
+  ggplot(aes(x = z, y = d)) +
+  geom_line(color = "black") +
+  geom_area(aes(x = z, y = ifelse(z <= tau_minus, d, 0)), fill = "#178f92", alpha = 1/4) +
+  geom_area(aes(x = z, y = ifelse(z > tau_minus & z <= tau_plus, d, 0)), fill = "transparent", alpha = 1/4) +
+  geom_area(aes(x = z, y = ifelse(z > tau_plus, d, 0)), fill = "#845d29", alpha = 1/4) +
+  geom_segment(x = tau_plus, xend = tau_plus, y = 0, yend = dnorm(tau_plus), linetype = 3) +
+  geom_segment(x = tau_minus, xend = tau_minus, y = 0, yend = dnorm(tau_minus), 
+               linetype = 3) +
+  geom_segment(x = tau_plus, xend = tau_plus, y = 0, yend = .01) +
+  geom_segment(x = tau_minus, xend = tau_minus, y = 0, yend = .01) +
+  geom_segment(x = tau_mid, xend = tau_mid, y = 0, yend = .01) +
+  geom_segment(x = 0, xend = 0, y = 0, yend = .01) +
+  annotate("text", x = plot_labs$x, y = plot_labs$y, label = parse(text = plot_labs$label),
+           size = 4, family = "serif") +
+  annotate("text", x = tau_plus + 2, y = dnorm(tau_plus + .5), 
+           label = parse(text = "Pr(y[ij] == Support)"),
+           size = 4, family = "serif") +
+  geom_curve(aes(x = tau_plus + 1.9, y = dnorm(tau_plus + .6),
+             xend = tau_plus + 1.1, yend = dnorm(tau_plus + 1.5)),
+             arrow = arrow(length = unit(.02, "npc")), curvature = -.25) +
+  annotate("text", x = tau_minus - .7, y = dnorm(tau_minus + .5), 
+           label = parse(text = "Pr(y[ij] == Oppose)"),
+           size = 4, family = "serif") +
+  geom_curve(aes(x = tau_minus - .7, y = dnorm(tau_minus + .4),
+             xend = tau_minus - .5, yend = dnorm(tau_minus - .8)),
+             arrow = arrow(length = unit(.02, "npc")), curvature = .25) +
+  annotate("text", x = tau_mid - 1, y = dnorm(tau_mid - .2), 
+           label = parse(text = "Pr(y[ij] == Abstain)"),
+           size = 4, family = "serif") +
+  geom_curve(aes(x = tau_mid - 1, y = dnorm(tau_mid - .3),
+             xend = tau_mid - .4, yend = dnorm(tau_mid) / 2),
+             arrow = arrow(length = unit(.02, "npc")), curvature = .25) +
+  geom_hline(yintercept = 0) +
+  scale_x_continuous(NULL, breaks = NULL, name = parse(text = "y[ij]")) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-3.25, 3.25)) +
+  theme_ggdist() +
+  theme(axis.line.y.left = element_blank(),
+        panel.background = element_rect(fill = "transparent",colour = NA),
+        plot.background = element_rect(fill = "transparent",colour = NA))
+```
+
+# Simulation Study
+
+```{r}
+tar_load(sim_ord_comparison_plots)
+```
+
+
+```{r}
+#| results: "asis"
+names(sim_ord_comparison_plots) <- as.character(1:5)
+
+maketabs(sim_ord_comparison_plots)
+```
+
+
+# Replication 
+
+```{r}
+tar_load(cfl_comparison_plot)
+cfl_comparison_plot[[1]]
+```
+
+```{r}
+tar_read(cfl_density_plot)
+```
+
