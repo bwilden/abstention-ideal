@@ -59,11 +59,6 @@ Figure 2: Abstention IRT Model
 
 # Replication
 
-    [[1]]
-
 ![](README_files/figure-commonmark/unnamed-chunk-6-1.png)
 
-
-    [[2]]
-
-![](README_files/figure-commonmark/unnamed-chunk-6-2.png)
+![](README_files/figure-commonmark/unnamed-chunk-7-1.png)

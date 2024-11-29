@@ -1,6 +1,6 @@
 ---
 title: "Ideal Point Estimation with 99% Missing Data"
-format: html
+format: gfm
 execute: 
   echo: false
   message: false
