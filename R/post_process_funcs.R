@@ -20,7 +20,7 @@ calc_cfl_qis <- function(ord_model, pscl_model, group_info_df) {
     mutate(plot_seq_pscl = seq_len(n()),
            plot_seq_ord = NA,
            group_id = str_remove(group_id, ".D1"),
-           method = "pscl Model")
+           method = "Traditional Model")
   
   all_qis <- rbind(
     ord_qis %>% select(group_id, theta_est, .lower, .upper, .width, 
@@ -47,7 +47,7 @@ calc_group_posteriors <- function(ord_model, pscl_model, group_info_df) {
                  names_to = "group_id",
                  values_to = "theta_est") %>% 
     mutate(group_id = str_remove(group_id, ".D1"),
-           method = "pscl Model")
+           method = "Traditional Model")
   
   all_draws <- rbind(
     ord_draws %>% select(group_id, theta_est, method),

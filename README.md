@@ -11,7 +11,7 @@
 
 ![](README_files/figure-commonmark/fig-irt-1.png)
 
-Figure 1: Binary IRT Model
+Figure 1: Traditional IRT Model
 
 </div>
 
@@ -59,6 +59,16 @@ Figure 2: Abstention IRT Model
 
 # Replication
 
+<div class="panel-tabset">
+
+## 1
+
 ![](README_files/figure-commonmark/unnamed-chunk-6-1.png)
 
+## 2
+
 ![](README_files/figure-commonmark/unnamed-chunk-7-1.png)
+
+</div>
+
+![](README_files/figure-commonmark/unnamed-chunk-8-1.png)

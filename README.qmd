@@ -29,7 +29,7 @@ $$ {#eq-irt}
 
 ```{r}
 #| label: fig-irt
-#| fig-cap: "Binary IRT Model"
+#| fig-cap: "Traditional IRT Model"
 #| fig-height: 4
 tau_plus <- .7
 tau_minus <- -2
@@ -154,6 +154,7 @@ maketabs(sim_ord_comparison_plots)
 tar_load(cfl_comparison_plot)
 cfl_comparison_plot[[1]]
 ```
+
 
 ```{r}
 tar_read(cfl_density_plot)
