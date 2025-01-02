@@ -20,12 +20,20 @@ pacman::p_load(
 )
 ```
 
- 
+Item-Response Theory (IRT) models are frequently used in political science to estimate the latent ideology, or ideal point, of various political actors (most commonly legislators). The model takes observed actions (such as votes on bills) as inputs, and then outputs a posterior distribution for where each actor's ideal point lands on a left-right scale. The traditional IRT model formulation is shown in @eq-irt.
+
 $$
 \begin{aligned}
   \text{Pr}(y_{ij} = \text{Support}) &= \Phi(\gamma_j\theta_i + \xi_j)
 \end{aligned}
 $$ {#eq-irt}
+
+Where
+
+- $y_{ij}$: actor $i$'s vote (support/oppose) on bill $j$
+- $\theta_i$: the actor's ideal point
+- $\gamma_j$: the ideological component of the bill
+- $\xi_j$: the non-ideological component of the bill
 
 ```{r}
 #| label: fig-irt
@@ -72,7 +80,13 @@ tibble(z = seq(from = -3.75, to = 3.75, length.out = 1e3)) %>%
         plot.background = element_rect(fill = "transparent",colour = NA))
 ```
 
+@fig-irt shows the probabilistic representation of @eq-irt using the standard normal CDF link, $\Phi$. 
 
+## Accounting for Abstentions
+
+Some tricky model identification issues aside, the traditional IRT model does a pretty good job recovering ideal points when most actors vote on most bills. But if there is a high rate of abstentions (e.g. missing data), things start to fall apart. 
+
+In my [dissertation paper](https://github.com/bwilden/abstention-ideal/blob/main/paper.pdf) for this project I develop a new IRT model to account for high rates of missing data. The new model is essentially an ordered-probit with an extra parameter, $\tau_i$ for each actor which represents their "indifference" towards taking support/oppose positions (@eq-irt-tau and @fig-irt-abs).
 
 $$
 \begin{aligned}
@@ -81,6 +95,7 @@ $$
    \text{Pr}(y_{ij} = \text{Oppose}) &= 1 - \Phi(\gamma_j\theta_i + \xi_j + \tau_i) 
 \end{aligned}
 $$ {#eq-irt-tau}
+
 
 ```{r}
 #| label: fig-irt-abs
@@ -133,30 +148,43 @@ tibble(z = seq(from = -3.75, to = 3.75, length.out = 1e3)) %>%
         plot.background = element_rect(fill = "transparent",colour = NA))
 ```
 
-# Simulation Study
+Larger values of $\tau$ implies a higher likelihood that an actor will abstain on any particular bill.
+
+I code this model in the Bayesian modeling package [brms](https://paulbuerkner.com/brms/) in R using actor-specific thresholds. The $\theta$, $\gamma$, and $\xi$ parameters are all modeled hierarchically using the `(1 | id)` syntax from brms.
+
+```{r}
+#| eval: false
+#| echo: true
+abstention_formula <- bf(
+  position | thres(gr = actor_id) ~ gamma * theta + xi,
+  theta ~ (1 | actor_id),
+  gamma ~ (1 | bill_id),
+  xi ~ (1 | bill_id),
+  nl = TRUE
+)
+abstention_family <- brmsfamily("cumulative", "probit")
+```
+
+## Simulation Study
 
 ```{r}
 tar_load(sim_ord_comparison_plots)
 ```
 
+I simulate data with increasing amounts of missingness (i.e. abstentions) to test how well each IRT model recovers the true parameter values. By comparing the true ideal point values on the x-axis with the estimated ideal point values on the y-axis we can see that under low-to-moderate amounts of missingness, both the Abstention model and the traditional IRT models do a decent job. However, at about 90% missing data and above, the traditional model fails to accurately recover the simulated ideal points---whereas the Abstention model's predictions remain relatively close to the 45 degree identity line.[^1] 
 
 ```{r}
 #| results: "asis"
-names(sim_ord_comparison_plots) <- as.character(1:5)
+names(sim_ord_comparison_plots) <- c(18.9, 46.3, 74.0, 90.2, 96.2) |> 
+  paste0("% Missing Data")
 
 maketabs(sim_ord_comparison_plots)
 ```
 
 
-# Replication 
+## Notes
 
-```{r}
-tar_load(cfl_comparison_plot)
-cfl_comparison_plot[[1]]
-```
+- Full paper: [paper.pdf](https://github.com/bwilden/abstention-ideal/blob/main/paper.pdf)
+- R code and cleaning steps: [_targets.R](https://github.com/bwilden/abstention-ideal/blob/main/_targets.R) and [R files](https://github.com/bwilden/abstention-ideal/tree/main/R)
 
-
-```{r}
-tar_read(cfl_density_plot)
-```
-
+[^1]: The *99%* in the project title comes from an application where I test my model against federal interest group lobbying data, which has an abstention rate of around 99.9%. See the full paper for more details.
